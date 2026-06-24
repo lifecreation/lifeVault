@@ -14,8 +14,8 @@
     --ink: #1A1A1A;
     --accent: #D97706;
     --accent-light: #F59E0B;
-    --card-w: 320px;
-    --card-h: 190px;
+    --card-w: min(320px, 86vw);
+    --card-h: clamp(150px, 53vw, 190px);
   }
   html, body {
     height: 100%;
@@ -200,7 +200,7 @@
   /* ── CARD STACK ── */
   .lv-stack-area {
     position: relative;
-    height: 280px;
+    height: calc(var(--card-h) + 100px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -709,6 +709,45 @@
     border: 0;
   }
 
+  /* ── RESPONSIVE: small phones (iPhone SE / older Android, ~320–360px) ── */
+  @media (max-width: 360px) {
+    .lv-header { padding: 44px 14px 14px; gap: 8px; }
+    .lv-logo-text { font-size: 14px; }
+    .lv-logo-icon { width: 28px; height: 28px; }
+    .lv-search { font-size: 13px; padding: 7px 12px 7px 30px; }
+    .lv-add-btn { width: 30px; height: 30px; font-size: 19px; }
+    .lv-filters { padding: 4px 14px 16px; }
+    .lv-filter-chip { padding: 5px 12px; font-size: 12px; }
+    .lv-section-label, .lv-recent-label { padding-left: 14px; padding-right: 14px; }
+    .lv-card-inner { padding: 16px 18px; }
+    .lv-card-name { font-size: 16px; }
+    .lv-quick-actions { padding: 0 14px 22px; gap: 8px; }
+    .lv-recent-list { padding: 0 14px 32px; }
+  }
+
+  /* ── RESPONSIVE: tablets/desktop — keep the phone-style column but give it
+     some breathing room instead of stretching edge-to-edge ── */
+  @media (min-width: 600px) {
+    html, body { background: #E8D9CC; }
+  }
+  @media (prefers-color-scheme: dark) and (min-width: 600px) {
+    html, body { background: #060A09; }
+  }
+  @media (min-width: 600px) {
+    body { padding: 24px 0; }
+    #lv-root {
+      min-height: calc(100vh - 48px);
+      border-radius: 28px;
+      box-shadow: 0 20px 60px rgba(1,62,55,0.18);
+      overflow: hidden;
+    }
+    .lv-header { border-radius: 28px 28px 0 0; }
+  }
+
+  @media (prefers-color-scheme: dark) and (min-width: 600px) {
+    #lv-root { box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+  }
+
   @media (prefers-color-scheme: dark) {
     :root { --bg: #0D1413; --surface: #14201E; --ink: #F5F5F5; --primary: #F5F5F5; }
     body { background: #0D1413; }
@@ -918,6 +957,81 @@
 
   var GENERIC_META = { filter:"legal", category:"Other", emoji:"📄", bg:"#F4F4F2", tagBg:"#E2E2DC", tagColor:"#3A3A35", stripe:"#8A8A80" };
 
+  /* ─── PERSISTENCE ───
+     Saves the vault to storage so an uploaded/scanned document is still there
+     after a refresh, instead of resetting back to the demo data. Personal
+     (not shared) — only this user sees their own vault. */
+  var STORAGE_KEY = "lifevault-data";
+  var storageReady = !!(window.storage && window.storage.get && window.storage.set);
+
+  function saveState() {
+    if (!storageReady) return;
+    var payload = JSON.stringify({ docs: DOCS, recent: RECENT, nextDocId: nextDocId });
+    window.storage.set(STORAGE_KEY, payload, false).catch(function (err) {
+      console.error("LifeVault: save failed", err);
+      toast("⚠️ Couldn't save — changes may not survive a refresh");
+    });
+  }
+
+  function loadState() {
+    if (!storageReady) return Promise.resolve(false);
+    return window.storage.get(STORAGE_KEY, false)
+      .then(function (result) {
+        if (!result || !result.value) return false;
+        var parsed = JSON.parse(result.value);
+        if (!parsed || !Array.isArray(parsed.docs)) return false;
+        DOCS = parsed.docs;
+        RECENT = Array.isArray(parsed.recent) ? parsed.recent : [];
+        if (typeof parsed.nextDocId === "number") {
+          nextDocId = parsed.nextDocId;
+        } else {
+          nextDocId = DOCS.reduce(function (max, d) { return Math.max(max, d.id); }, 0) + 1;
+        }
+        return true;
+      })
+      .catch(function () {
+        // No saved vault yet (first run) — fall back to the starter demo set.
+        return false;
+      });
+  }
+
+  /* Keeps an uploaded/scanned image from ballooning storage size — downscales
+     to a max dimension and re-encodes as JPEG before it's ever stored. */
+  function resizeImageFile(file, maxDim, callback) {
+    var url = URL.createObjectURL(file);
+    var img = new Image();
+    img.onload = function () {
+      var w = img.naturalWidth, h = img.naturalHeight;
+      var scale = Math.min(1, maxDim / Math.max(w, h));
+      var cw = Math.max(1, Math.round(w * scale));
+      var ch = Math.max(1, Math.round(h * scale));
+      var canvas = document.createElement("canvas");
+      canvas.width = cw;
+      canvas.height = ch;
+      canvas.getContext("2d").drawImage(img, 0, 0, cw, ch);
+      URL.revokeObjectURL(url);
+      callback(canvas.toDataURL("image/jpeg", 0.82));
+    };
+    img.onerror = function () {
+      URL.revokeObjectURL(url);
+      callback(null);
+    };
+    img.src = url;
+  }
+
+  function downscaleCanvas(sourceCanvas, maxDim) {
+    var w = sourceCanvas.width, h = sourceCanvas.height;
+    var scale = Math.min(1, maxDim / Math.max(w, h));
+    if (scale >= 1) return sourceCanvas.toDataURL("image/jpeg", 0.85);
+    var cw = Math.max(1, Math.round(w * scale));
+    var ch = Math.max(1, Math.round(h * scale));
+    var out = document.createElement("canvas");
+    out.width = cw;
+    out.height = ch;
+    out.getContext("2d").drawImage(sourceCanvas, 0, 0, cw, ch);
+    return out.toDataURL("image/jpeg", 0.82);
+  }
+
   /* ─── STATE ─── */
   var currentIndex   = 0;
   var activeFilter    = "all";
@@ -997,6 +1111,7 @@
     currentIndex = 0;
     buildStack();
     buildRecent();
+    saveState();
     toast("🗑️ \"" + name + "\" deleted");
   }
 
@@ -1007,6 +1122,7 @@
       if (RECENT[j] === entry) RECENT.splice(j, 1);
     }
     buildRecent();
+    saveState();
     toast("🗑️ Removed from recently viewed");
   }
 
@@ -1337,6 +1453,7 @@
     currentIndex = 0;
     buildStack();
     addToRecent(doc.id, doc.name, doc.category + " · " + doc.updated, doc.emoji, doc.bg, doc.image);
+    saveState();
     toast("✅ \"" + name + "\" saved to your vault");
   }
 
@@ -1470,7 +1587,7 @@
     canvas.height = video.videoHeight;
     var ctx = canvas.getContext("2d");
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    capturedDataUrl = canvas.toDataURL("image/jpeg", 0.92);
+    capturedDataUrl = downscaleCanvas(canvas, 1280);
 
     $("lv-scan-preview-img").src = capturedDataUrl;
     $("lv-scan-video").style.display = "none";
@@ -1521,14 +1638,12 @@
     $("lv-scan-fallback-input").addEventListener("change", function (e) {
       var file = e.target.files && e.target.files[0];
       if (!file) return;
-      var reader = new FileReader();
-      reader.onload = function () {
-        var name = file.name.replace(/\.[^/.]+$/, "") || "Scanned Document";
-        addDocument(name, reader.result);
+      var name = file.name.replace(/\.[^/.]+$/, "") || "Scanned Document";
+      resizeImageFile(file, 1280, function (dataUrl) {
+        addDocument(name, dataUrl);
         closeScanner();
         e.target.value = "";
-      };
-      reader.readAsDataURL(file);
+      });
     });
   }
 
@@ -1546,12 +1661,10 @@
       var file = input.files[0];
       var name = file.name.replace(/\.[^/.]+$/, "");
       if (file.type && file.type.indexOf("image/") === 0) {
-        var reader = new FileReader();
-        reader.onload = function () {
-          addDocument(name, reader.result);
+        resizeImageFile(file, 1280, function (dataUrl) {
+          addDocument(name, dataUrl);
           input.value = "";
-        };
-        reader.readAsDataURL(file);
+        });
       } else {
         addDocument(name, null);
         input.value = "";
@@ -1603,8 +1716,19 @@
     initQuickActions();
     initSwipe();
     initViewer();
-    buildStack();
-    buildRecent();
+
+    $("lv-stack").innerHTML = '<div class="lv-empty"><i class="ti ti-file-off"></i><span>Loading your vault…</span></div>';
+
+    loadState().then(function (loaded) {
+      if (!loaded) {
+        // First time opening the app (or storage unavailable) — persist the
+        // starter set so it stays put on the next refresh instead of feeling
+        // like nothing was ever saved.
+        saveState();
+      }
+      buildStack();
+      buildRecent();
+    });
   }
 
   if (document.readyState === "loading") {
