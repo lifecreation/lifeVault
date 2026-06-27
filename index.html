@@ -1,1742 +1,1635 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>LifeVault</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover">
+<title>LifeVault — Your Documents, Secured</title>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --bg: #FFEBDD;
-    --surface: #FAFAF8;
-    --primary: #013E37;
-    --ink: #1A1A1A;
-    --accent: #D97706;
-    --accent-light: #F59E0B;
-    --card-w: min(320px, 86vw);
-    --card-h: clamp(150px, 53vw, 190px);
-  }
-  html, body {
-    height: 100%;
-    background: var(--bg);
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
-    color: var(--primary);
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    min-height: 100vh;
-  }
-  #lv-root {
-    background: var(--bg);
-    min-height: 100vh;
-    width: 100%;
-    max-width: 430px;
-    overflow-x: hidden;
-    position: relative;
-  }
+:root{
+  --bg-deep:#0b1220;
+  --bg-panel:#111a2e;
+  --bg-panel-2:#16213a;
+  --gold:#d4a843;
+  --gold-bright:#f0c869;
+  --ink:#eef1f8;
+  --ink-dim:#9aa6c0;
+  --ink-faint:#6b7593;
+  --line:rgba(212,168,67,0.16);
+  --line-soft:rgba(255,255,255,0.08);
+  --danger:#e2604f;
+  --success:#4fae8a;
+  --glass:rgba(22,33,58,0.55);
+  --glass-strong:rgba(17,26,46,0.78);
+  --radius-lg:22px;
+  --radius-md:16px;
+  --radius-sm:11px;
+  --font-display:'Fraunces',Georgia,serif;
+  --font-body:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+  --safe-top:env(safe-area-inset-top,0px);
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+}
 
-  /* ── HEADER ── */
-  .lv-header {
-    display: flex;
-    align-items: center;
-    padding: 54px 20px 16px;
-    gap: 12px;
-    background: rgba(255,235,221,0.92);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    position: sticky;
-    top: 0;
-    z-index: 200;
-    border-bottom: 1px solid rgba(1,62,55,0.12);
-  }
-  .lv-logo {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-shrink: 0;
-    text-decoration: none;
-  }
-  .lv-logo-icon {
-    width: 32px;
-    height: 32px;
-    background: var(--primary);
-    border-radius: 9px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .lv-logo-icon svg { display: block; }
-  .lv-logo-text {
-    font-size: 16px;
-    font-weight: 700;
-    letter-spacing: -0.4px;
-    color: var(--primary);
-  }
-  .lv-logo-text span { color: var(--accent-light); }
-  .lv-search-wrap {
-    flex: 1;
-    position: relative;
-  }
-  .lv-search {
-    width: 100%;
-    background: rgba(1,62,55,0.08);
-    border: 1px solid rgba(1,62,55,0.14);
-    border-radius: 22px;
-    padding: 8px 14px 8px 34px;
-    font-size: 14px;
-    color: var(--primary);
-    outline: none;
-    transition: background 0.2s, border-color 0.2s;
-  }
-  .lv-search::placeholder { color: rgba(1,62,55,0.45); }
-  .lv-search:focus { background: rgba(1,62,55,0.12); border-color: var(--accent); }
-  .lv-add-btn {
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
-    background: var(--accent);
-    border: none;
-    color: #fff;
-    font-size: 22px;
-    line-height: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    flex-shrink: 0;
-    transition: transform 0.15s, background 0.2s;
-    box-shadow: 0 4px 12px rgba(217,119,6,0.25);
-    position: relative;
-    z-index: 5;
-  }
-  .lv-add-btn:hover { background: var(--accent-light); box-shadow: 0 6px 16px rgba(217,119,6,0.35); }
-  .lv-add-btn:active { transform: scale(0.88); }
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 
-  /* ── ADD MENU ── */
-  .lv-add-menu {
-    position: absolute;
-    top: 100%;
-    right: 20px;
-    margin-top: 8px;
-    background: var(--surface);
-    border-radius: 16px;
-    box-shadow: 0 12px 36px rgba(1,62,55,0.22);
-    border: 1px solid rgba(1,62,55,0.08);
-    overflow: hidden;
-    z-index: 210;
-    min-width: 190px;
-    opacity: 0;
-    transform: translateY(-8px) scale(0.97);
-    pointer-events: none;
-    transition: opacity 0.18s ease, transform 0.18s ease;
-  }
-  .lv-add-menu.open { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
-  .lv-add-menu-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 13px 16px;
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--ink);
-    cursor: pointer;
-    background: none;
-    border: none;
-    width: 100%;
-    text-align: left;
-  }
-  .lv-add-menu-item svg { width: 18px; height: 18px; color: var(--accent); flex-shrink: 0; }
-  .lv-add-menu-item:hover { background: rgba(217,119,6,0.08); }
-  .lv-add-menu-item:not(:last-child) { border-bottom: 1px solid rgba(1,62,55,0.06); }
+html,body{
+  width:100%;
+  height:100%;
+  overflow-x:hidden;
+}
 
-  /* ── FILTERS ── */
-  .lv-filters {
-    display: flex;
-    gap: 8px;
-    padding: 4px 20px 18px;
-    overflow-x: auto;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-    position: relative;
-    z-index: 5;
-  }
-  .lv-filters::-webkit-scrollbar { display: none; }
-  .lv-filter-chip {
-    border-radius: 22px;
-    padding: 6px 15px;
-    font-size: 13px;
-    font-weight: 600;
-    border: 1.5px solid rgba(1,62,55,0.2);
-    background: transparent;
-    color: rgba(1,62,55,0.65);
-    cursor: pointer;
-    white-space: nowrap;
-    flex-shrink: 0;
-    transition: all 0.25s;
-  }
-  .lv-filter-chip.active {
-    background: var(--accent);
-    color: #fff;
-    border-color: var(--accent);
-    box-shadow: 0 4px 12px rgba(217,119,6,0.2);
-  }
-  .lv-filter-chip:not(.active):hover {
-    border-color: var(--accent);
-    color: var(--accent);
-    background: rgba(217,119,6,0.06);
-  }
+body{
+  font-family:var(--font-body);
+  background:
+    radial-gradient(circle at 15% 0%, rgba(212,168,67,0.10), transparent 45%),
+    radial-gradient(circle at 90% 20%, rgba(79,174,138,0.07), transparent 40%),
+    linear-gradient(180deg,#0b1220,#080d18 60%,#06090f);
+  color:var(--ink);
+  min-height:100vh;
+  position:relative;
+}
 
-  /* ── SECTION LABEL ── */
-  .lv-section-label {
-    padding: 0 20px 14px;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.09em;
-    color: rgba(1,62,55,0.5);
-    text-transform: uppercase;
-  }
+body::before{
+  content:'';
+  position:fixed;
+  inset:0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+  background-size:34px 34px;
+  pointer-events:none;
+  z-index:0;
+}
 
-  /* ── CARD STACK ── */
-  .lv-stack-area {
-    position: relative;
-    height: calc(var(--card-h) + 100px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    perspective: 1200px;
-    perspective-origin: center 50%;
-    z-index: 1;
-  }
-  .lv-doc-card {
-    position: absolute;
-    width: var(--card-w);
-    height: var(--card-h);
-    border-radius: 22px;
-    background: var(--surface);
-    cursor: grab;
-    transform-origin: center bottom;
-    will-change: transform, opacity;
-    touch-action: none;
-    user-select: none;
-    -webkit-user-select: none;
-    box-shadow: 0 2px 8px rgba(1,62,55,0.1);
-  }
-  .lv-doc-card:active { cursor: grabbing; }
-  .lv-card-inner {
-    width: 100%;
-    height: 100%;
-    border-radius: 22px;
-    padding: 22px 24px;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    position: relative;
-    overflow: hidden;
-  }
-  .lv-card-inner::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%;
-    height: 50%;
-    border-radius: 22px 22px 50% 50%;
-    background: linear-gradient(160deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0) 100%);
-    pointer-events: none;
-    z-index: 1;
-  }
-  .lv-card-top {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    position: relative;
-    z-index: 2;
-  }
-  .lv-card-icon-wrap {
-    width: 46px;
-    height: 46px;
-    border-radius: 14px;
-    background: rgba(255,255,255,0.75);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 24px;
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    overflow: hidden;
-  }
-  .lv-card-icon-wrap img { width: 100%; height: 100%; object-fit: cover; border-radius: 14px; }
-  .lv-card-tag {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-weight: 700;
-  }
-  .lv-card-bottom {
-    position: relative;
-    z-index: 2;
-  }
-  .lv-card-name {
-    font-size: 18px;
-    font-weight: 700;
-    letter-spacing: -0.4px;
-    margin-bottom: 4px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .lv-card-date {
-    font-size: 12px;
-  }
-  .lv-card-stripe {
-    position: absolute;
-    bottom: 0; left: 0; right: 0;
-    height: 5px;
-    border-radius: 0 0 22px 22px;
-    z-index: 3;
-  }
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;}
+input{font-family:inherit;color:inherit;}
+a{color:inherit;text-decoration:none;}
 
-  /* ── SWIPE HINT ── */
-  .lv-swipe-hint {
-    text-align: center;
-    font-size: 11px;
-    color: rgba(1,62,55,0.4);
-    margin: 0 0 14px;
-    letter-spacing: 0.04em;
-    font-weight: 500;
-  }
+::-webkit-scrollbar{width:6px;height:6px;}
+::-webkit-scrollbar-thumb{background:rgba(212,168,67,0.3);border-radius:10px;}
+::-webkit-scrollbar-track{background:transparent;}
 
-  /* ── DOTS ── */
-  .lv-dots {
-    display: flex;
-    justify-content: center;
-    gap: 6px;
-    margin-bottom: 24px;
-  }
-  .lv-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: rgba(1,62,55,0.22);
-    transition: all 0.28s ease;
-  }
-  .lv-dot.active {
-    background: var(--accent);
-    width: 20px;
-    border-radius: 3px;
-  }
+:focus-visible{
+  outline:2px solid var(--gold-bright);
+  outline-offset:3px;
+  border-radius:8px;
+}
 
-  /* ── QUICK ACTIONS ── */
-  .lv-quick-actions {
-    display: flex;
-    gap: 10px;
-    padding: 0 20px 26px;
-    position: relative;
-    z-index: 5;
-  }
-  .lv-qa-btn {
-    flex: 1;
-    border-radius: 16px;
-    background: rgba(1,62,55,0.06);
-    border: 1.5px solid rgba(1,62,55,0.12);
-    padding: 14px 8px 12px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    cursor: pointer;
-    transition: background 0.18s, transform 0.15s, border-color 0.18s;
-    font-size: 11px;
-    font-weight: 700;
-    color: rgba(1,62,55,0.65);
-    letter-spacing: 0.02em;
-  }
-  .lv-qa-btn i { font-size: 22px; color: var(--accent); }
-  .lv-qa-btn svg { width: 22px; height: 22px; color: var(--accent); flex-shrink: 0; }
-  .lv-qa-btn:hover {
-    background: rgba(217,119,6,0.1);
-    border-color: var(--accent);
-    color: var(--accent);
-  }
-  .lv-qa-btn:active { transform: scale(0.94); background: rgba(217,119,6,0.18); }
+.screen{
+  position:fixed;
+  inset:0;
+  display:none;
+  flex-direction:column;
+  z-index:10;
+  padding-top:var(--safe-top);
+  padding-bottom:var(--safe-bottom);
+}
+.screen.active{display:flex;}
 
-  /* ── RECENT DOCS ── */
-  .lv-recent-label {
-    padding: 0 20px 12px;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.09em;
-    color: rgba(1,62,55,0.5);
-    text-transform: uppercase;
-  }
-  .lv-recent-list {
-    padding: 0 20px 40px;
-    display: flex;
-    flex-direction: column;
-    gap: 9px;
-  }
-  .lv-recent-item {
-    display: flex;
-    align-items: center;
-    gap: 13px;
-    background: var(--surface);
-    border-radius: 16px;
-    padding: 13px 15px;
-    border: 1px solid rgba(1,62,55,0.08);
-    box-shadow: 0 1px 3px rgba(1,62,55,0.06);
-    cursor: pointer;
-    transition: transform 0.16s, box-shadow 0.16s, border-color 0.16s;
-  }
-  .lv-recent-item:hover {
-    box-shadow: 0 4px 12px rgba(217,119,6,0.14);
-    border-color: rgba(217,119,6,0.25);
-  }
-  .lv-recent-item:active { transform: scale(0.97); }
-  .lv-ri-icon {
-    width: 38px;
-    height: 38px;
-    border-radius: 11px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 20px;
-    flex-shrink: 0;
-    overflow: hidden;
-  }
-  .lv-ri-icon img { width: 100%; height: 100%; object-fit: cover; }
-  .lv-ri-info { flex: 1; min-width: 0; }
-  .lv-ri-name { font-size: 14px; font-weight: 700; color: var(--ink); margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .lv-ri-meta { font-size: 12px; color: rgba(26,26,26,0.5); }
-  .lv-ri-arrow { font-size: 17px; color: var(--accent); flex-shrink: 0; }
-  .lv-ri-delete {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: rgba(1,62,55,0.07);
-    border: none;
-    color: rgba(1,62,55,0.55);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    flex-shrink: 0;
-    transition: background 0.18s, color 0.18s, transform 0.15s;
-  }
-  .lv-ri-delete:active { transform: scale(0.88); }
-  .lv-ri-delete.armed { background: #E84040; color: #fff; }
+/* ============ SPLASH ============ */
+#splashScreen{
+  align-items:center;
+  justify-content:center;
+  background:
+    radial-gradient(circle at 50% 30%, rgba(212,168,67,0.14), transparent 55%),
+    linear-gradient(180deg,#0b1220,#070b14);
+}
+.splash-mark{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:18px;
+}
+.splash-emblem{
+  width:84px;height:84px;
+  border-radius:22px;
+  background:linear-gradient(155deg, var(--gold-bright), var(--gold) 60%, #9c7424);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 0 1px rgba(255,255,255,0.15) inset, 0 18px 40px -10px rgba(212,168,67,0.45);
+  animation:emblemPulse 2.4s ease-in-out infinite;
+  position:relative;
+}
+.splash-emblem svg{width:42px;height:42px;}
+@keyframes emblemPulse{
+  0%,100%{transform:scale(1);}
+  50%{transform:scale(1.045);}
+}
+.splash-word{
+  font-family:var(--font-display);
+  font-size:28px;
+  font-weight:600;
+  letter-spacing:0.01em;
+  opacity:0;
+  animation:fadeUp .7s ease forwards .25s;
+}
+.splash-tag{
+  font-size:12.5px;
+  color:var(--ink-faint);
+  letter-spacing:0.14em;
+  text-transform:uppercase;
+  opacity:0;
+  animation:fadeUp .7s ease forwards .45s;
+}
+@keyframes fadeUp{
+  from{opacity:0;transform:translateY(8px);}
+  to{opacity:1;transform:translateY(0);}
+}
+.splash-bar{
+  width:140px;height:3px;
+  background:rgba(255,255,255,0.08);
+  border-radius:3px;
+  margin-top:8px;
+  overflow:hidden;
+}
+.splash-bar-fill{
+  height:100%;width:0%;
+  background:linear-gradient(90deg,var(--gold),var(--gold-bright));
+  border-radius:3px;
+  animation:splashLoad 1.3s ease forwards .2s;
+}
+@keyframes splashLoad{ to{width:100%;} }
 
-  /* ── TOAST ── */
-  #lv-toast {
-    position: fixed;
-    bottom: 32px;
-    left: 50%;
-    transform: translateX(-50%) translateY(80px);
-    background: var(--primary);
-    color: #fff;
-    padding: 12px 24px;
-    border-radius: 24px;
-    font-size: 13px;
-    font-weight: 600;
-    z-index: 999;
-    transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s;
-    opacity: 0;
-    white-space: nowrap;
-    pointer-events: none;
-    box-shadow: 0 8px 30px rgba(1,62,55,0.35);
-  }
-  #lv-toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+/* ============ AUTH ============ */
+#authScreen{
+  align-items:center;
+  justify-content:flex-start;
+  padding:28px 20px;
+  overflow-y:auto;
+}
+.auth-wrap{
+  width:100%;
+  max-width:380px;
+  margin:0 auto;
+  padding-top:6vh;
+}
+.auth-emblem{
+  width:54px;height:54px;border-radius:16px;
+  background:linear-gradient(155deg, var(--gold-bright), var(--gold) 65%, #9c7424);
+  display:flex;align-items:center;justify-content:center;
+  margin:0 auto 18px;
+  box-shadow:0 12px 28px -8px rgba(212,168,67,0.4);
+}
+.auth-emblem svg{width:28px;height:28px;}
+.auth-title{
+  font-family:var(--font-display);
+  font-size:26px;
+  font-weight:600;
+  text-align:center;
+  margin-bottom:6px;
+}
+.auth-sub{
+  font-size:13.5px;
+  color:var(--ink-dim);
+  text-align:center;
+  margin-bottom:28px;
+  line-height:1.5;
+}
+.auth-tabs{
+  display:flex;
+  background:rgba(255,255,255,0.04);
+  border:1px solid var(--line-soft);
+  border-radius:14px;
+  padding:4px;
+  margin-bottom:22px;
+  gap:4px;
+}
+.auth-tab{
+  flex:1;
+  padding:10px 0;
+  text-align:center;
+  font-size:13.5px;
+  font-weight:600;
+  color:var(--ink-faint);
+  border-radius:11px;
+  transition:all .25s ease;
+}
+.auth-tab.active{
+  background:linear-gradient(155deg,var(--gold-bright),var(--gold));
+  color:#1a1306;
+}
+.method-toggle{
+  display:flex;
+  gap:8px;
+  margin-bottom:18px;
+}
+.method-btn{
+  flex:1;
+  padding:9px 0;
+  font-size:12.5px;
+  font-weight:600;
+  border-radius:10px;
+  border:1px solid var(--line-soft);
+  color:var(--ink-dim);
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  transition:all .2s ease;
+}
+.method-btn.active{
+  border-color:rgba(212,168,67,0.5);
+  color:var(--gold-bright);
+  background:rgba(212,168,67,0.08);
+}
+.method-btn svg{width:15px;height:15px;}
 
-  /* ── EMPTY STATE ── */
-  .lv-empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 200px;
-    gap: 10px;
-    color: rgba(1,62,55,0.35);
-    font-size: 14px;
-  }
-  .lv-empty i { font-size: 36px; }
+.field{margin-bottom:14px;}
+.field-label{
+  display:block;
+  font-size:12px;
+  color:var(--ink-faint);
+  margin-bottom:7px;
+  font-weight:600;
+  letter-spacing:0.02em;
+}
+.field-input-wrap{
+  position:relative;
+  display:flex;
+  align-items:center;
+}
+.field-input-wrap svg.field-icon{
+  position:absolute;left:14px;
+  width:17px;height:17px;
+  color:var(--ink-faint);
+  pointer-events:none;
+}
+.field input{
+  width:100%;
+  padding:13px 14px 13px 40px;
+  background:rgba(255,255,255,0.04);
+  border:1px solid var(--line-soft);
+  border-radius:13px;
+  font-size:14.5px;
+  color:var(--ink);
+  transition:border-color .2s ease, background .2s ease;
+}
+.field input::placeholder{color:var(--ink-faint);}
+.field input:focus{
+  border-color:rgba(212,168,67,0.55);
+  background:rgba(212,168,67,0.05);
+  outline:none;
+}
+.field-toggle-eye{
+  position:absolute;right:12px;
+  width:18px;height:18px;
+  color:var(--ink-faint);
+}
 
-  /* ── SCAN OVERLAY ── */
-  .lv-scan-overlay {
-    position: fixed;
-    inset: 0;
-    background: #000;
-    z-index: 500;
-    display: none;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-  }
-  .lv-scan-overlay.open { display: flex; }
-  .lv-scan-fallback {
-    display: none;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    max-width: 320px;
-    padding: 0 24px;
-    color: #fff;
-  }
-  .lv-scan-fallback.open { display: flex; }
-  .lv-scan-fallback svg { color: rgba(255,255,255,0.55); margin-bottom: 16px; }
-  .lv-scan-fallback-title { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
-  .lv-scan-fallback-sub { font-size: 13px; color: rgba(255,255,255,0.6); line-height: 1.5; margin-bottom: 22px; }
-  .lv-scan-fallback-upload {
-    background: var(--accent);
-    color: #fff;
-    border: none;
-    border-radius: 14px;
-    padding: 13px 28px;
-    font-size: 14px;
-    font-weight: 700;
-    cursor: pointer;
-  }
-  .lv-scan-video {
-    width: 100%;
-    max-width: 430px;
-    height: 70vh;
-    object-fit: cover;
-    background: #111;
-  }
-  .lv-scan-canvas { display: none; }
-  .lv-scan-controls {
-    width: 100%;
-    max-width: 430px;
-    display: flex;
-    align-items: center;
-    justify-content: space-around;
-    padding: 22px 20px calc(22px + env(safe-area-inset-bottom, 0px));
-  }
-  .lv-scan-close, .lv-scan-flip {
-    width: 46px;
-    height: 46px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.12);
-    border: none;
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-  }
-  .lv-scan-shutter {
-    width: 70px;
-    height: 70px;
-    border-radius: 50%;
-    background: #fff;
-    border: 5px solid rgba(255,255,255,0.35);
-    cursor: pointer;
-  }
-  .lv-scan-shutter:active { transform: scale(0.92); }
-  .lv-scan-status {
-    color: rgba(255,255,255,0.75);
-    font-size: 13px;
-    font-weight: 600;
-    margin-bottom: 14px;
-    text-align: center;
-    padding: 0 24px;
-  }
-  .lv-scan-preview-wrap {
-    width: 100%;
-    max-width: 430px;
-    height: 70vh;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    background: #111;
-  }
-  .lv-scan-preview-wrap.open { display: flex; }
-  .lv-scan-preview-wrap img { max-width: 100%; max-height: 100%; object-fit: contain; }
-  .lv-scan-save-row {
-    width: 100%;
-    max-width: 430px;
-    display: none;
-    gap: 12px;
-    padding: 18px 20px calc(18px + env(safe-area-inset-bottom, 0px));
-  }
-  .lv-scan-save-row.open { display: flex; }
-  .lv-scan-retake, .lv-scan-usephoto {
-    flex: 1;
-    padding: 14px;
-    border-radius: 14px;
-    border: none;
-    font-size: 14px;
-    font-weight: 700;
-    cursor: pointer;
-  }
-  .lv-scan-retake { background: rgba(255,255,255,0.12); color: #fff; }
-  .lv-scan-usephoto { background: var(--accent); color: #fff; }
-  .lv-scan-name-input {
-    width: 100%;
-    max-width: 430px;
-    margin: 0 20px 14px;
-    padding: 12px 14px;
-    border-radius: 12px;
-    border: 1px solid rgba(255,255,255,0.25);
-    background: rgba(255,255,255,0.08);
-    color: #fff;
-    font-size: 14px;
-    display: none;
-  }
-  .lv-scan-name-input.open { display: block; width: calc(100% - 40px); }
-  .lv-scan-name-input::placeholder { color: rgba(255,255,255,0.45); }
+.btn-primary{
+  width:100%;
+  padding:14px 0;
+  background:linear-gradient(155deg,var(--gold-bright),var(--gold));
+  color:#1a1306;
+  font-weight:700;
+  font-size:14.5px;
+  border-radius:13px;
+  letter-spacing:0.01em;
+  box-shadow:0 14px 30px -10px rgba(212,168,67,0.45);
+  transition:transform .15s ease, box-shadow .15s ease, opacity .2s ease;
+}
+.btn-primary:active{transform:scale(0.98);}
+.btn-primary:disabled{opacity:0.5;box-shadow:none;}
+.btn-ghost{
+  width:100%;
+  padding:13px 0;
+  background:rgba(255,255,255,0.04);
+  border:1px solid var(--line-soft);
+  color:var(--ink);
+  font-weight:600;
+  font-size:14px;
+  border-radius:13px;
+  transition:background .2s ease;
+}
+.btn-ghost:active{background:rgba(255,255,255,0.08);}
 
-  /* ── DOCUMENT VIEWER ── */
-  .lv-viewer-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(1,18,16,0.92);
-    z-index: 600;
-    display: none;
-    flex-direction: column;
-    align-items: center;
-  }
-  .lv-viewer-overlay.open { display: flex; }
-  .lv-viewer-top {
-    width: 100%;
-    max-width: 430px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 54px 20px 16px;
-    flex-shrink: 0;
-  }
-  .lv-viewer-close {
-    width: 38px;
-    height: 38px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.12);
-    border: none;
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    flex-shrink: 0;
-  }
-  .lv-viewer-title {
-    color: #fff;
-    font-size: 15px;
-    font-weight: 700;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    flex: 1;
-    min-width: 0;
-  }
-  .lv-viewer-delete {
-    width: 38px;
-    height: 38px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.12);
-    border: none;
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    flex-shrink: 0;
-    margin-left: auto;
-    transition: background 0.2s, color 0.2s, transform 0.15s;
-  }
-  .lv-viewer-delete:active { transform: scale(0.9); }
-  .lv-viewer-delete.armed {
-    background: #E84040;
-    color: #fff;
-  }
-  .lv-viewer-body {
-    flex: 1;
-    width: 100%;
-    max-width: 430px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 16px 24px;
-    overflow: auto;
-  }
-  .lv-viewer-body img {
-    max-width: 100%;
-    max-height: 100%;
-    border-radius: 12px;
-    object-fit: contain;
-    box-shadow: 0 12px 40px rgba(0,0,0,0.4);
-  }
-  .lv-viewer-placeholder {
-    display: none;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    color: rgba(255,255,255,0.7);
-    gap: 14px;
-    padding: 0 28px;
-  }
-  .lv-viewer-placeholder.show { display: flex; }
-  .lv-viewer-placeholder-icon {
-    width: 64px;
-    height: 64px;
-    border-radius: 18px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 30px;
-  }
-  .lv-viewer-placeholder-title { font-size: 15px; font-weight: 700; color: #fff; }
-  .lv-viewer-placeholder-sub { font-size: 13px; line-height: 1.5; color: rgba(255,255,255,0.55); }
+.auth-foot-link{
+  text-align:center;
+  margin-top:18px;
+  font-size:13px;
+  color:var(--ink-faint);
+}
+.auth-foot-link b{color:var(--gold-bright);font-weight:700;}
+.auth-error{
+  background:rgba(226,96,79,0.1);
+  border:1px solid rgba(226,96,79,0.3);
+  color:#f29a8d;
+  font-size:12.5px;
+  padding:10px 12px;
+  border-radius:10px;
+  margin-bottom:14px;
+  display:none;
+  align-items:flex-start;
+  gap:8px;
+  line-height:1.4;
+}
+.auth-error.show{display:flex;}
+.auth-error svg{width:15px;height:15px;flex-shrink:0;margin-top:1px;}
 
-  /* ── UPLOAD INPUTS (visually hidden but still natively clickable via <label for>) ──
-     FIX: display:none can make some mobile/preview browsers fall back to rendering
-     the default "Choose File / No file chosen" widget, and programmatic .click() on
-     a fully hidden input is blocked in some sandboxed environments. Using the
-     sr-only technique keeps the input technically present and clickable while
-     staying completely invisible, and pairing it with <label for="..."> means the
-     native file picker opens directly from the user's tap — no custom JS needed. */
-  #lv-upload-input,
-  #lv-scan-fallback-input {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0,0,0,0);
-    white-space: nowrap;
-    border: 0;
-  }
+.divider-row{
+  display:flex;align-items:center;gap:10px;
+  margin:18px 0;
+  color:var(--ink-faint);
+  font-size:11.5px;
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+}
+.divider-row::before,.divider-row::after{
+  content:'';flex:1;height:1px;background:var(--line-soft);
+}
 
-  /* ── RESPONSIVE: small phones (iPhone SE / older Android, ~320–360px) ── */
-  @media (max-width: 360px) {
-    .lv-header { padding: 44px 14px 14px; gap: 8px; }
-    .lv-logo-text { font-size: 14px; }
-    .lv-logo-icon { width: 28px; height: 28px; }
-    .lv-search { font-size: 13px; padding: 7px 12px 7px 30px; }
-    .lv-add-btn { width: 30px; height: 30px; font-size: 19px; }
-    .lv-filters { padding: 4px 14px 16px; }
-    .lv-filter-chip { padding: 5px 12px; font-size: 12px; }
-    .lv-section-label, .lv-recent-label { padding-left: 14px; padding-right: 14px; }
-    .lv-card-inner { padding: 16px 18px; }
-    .lv-card-name { font-size: 16px; }
-    .lv-quick-actions { padding: 0 14px 22px; gap: 8px; }
-    .lv-recent-list { padding: 0 14px 32px; }
-  }
+.otp-boxes{
+  display:flex;
+  gap:8px;
+  justify-content:center;
+  margin-bottom:18px;
+}
+.otp-boxes input{
+  width:44px;height:54px;
+  text-align:center;
+  font-size:20px;
+  font-weight:700;
+  padding:0;
+}
+.otp-hint{
+  text-align:center;
+  font-size:12.5px;
+  color:var(--ink-faint);
+  margin-bottom:18px;
+  line-height:1.5;
+}
+.otp-hint b{color:var(--gold-bright);}
+.otp-demo-banner{
+  background:rgba(79,174,138,0.1);
+  border:1px solid rgba(79,174,138,0.3);
+  color:#8fd6bc;
+  font-size:12px;
+  padding:10px 12px;
+  border-radius:10px;
+  margin-bottom:16px;
+  text-align:center;
+  line-height:1.5;
+}
+.otp-demo-banner b{font-size:16px;letter-spacing:0.1em;}
+.resend-link{
+  text-align:center;
+  font-size:13px;
+  color:var(--ink-faint);
+  margin-bottom:16px;
+}
+.resend-link b{color:var(--gold-bright);}
+.back-row{
+  display:flex;align-items:center;gap:8px;
+  margin-bottom:20px;
+  font-size:13px;
+  color:var(--ink-dim);
+  font-weight:600;
+}
+.back-row svg{width:17px;height:17px;}
 
-  /* ── RESPONSIVE: tablets/desktop — keep the phone-style column but give it
-     some breathing room instead of stretching edge-to-edge ── */
-  @media (min-width: 600px) {
-    html, body { background: #E8D9CC; }
-  }
-  @media (prefers-color-scheme: dark) and (min-width: 600px) {
-    html, body { background: #060A09; }
-  }
-  @media (min-width: 600px) {
-    body { padding: 24px 0; }
-    #lv-root {
-      min-height: calc(100vh - 48px);
-      border-radius: 28px;
-      box-shadow: 0 20px 60px rgba(1,62,55,0.18);
-      overflow: hidden;
-    }
-    .lv-header { border-radius: 28px 28px 0 0; }
-  }
+/* ============ PIN LOCK ============ */
+#pinScreen, #pinSetupScreen{
+  align-items:center;
+  justify-content:center;
+  background:
+    radial-gradient(circle at 50% 25%, rgba(212,168,67,0.10), transparent 55%),
+    linear-gradient(180deg,#0b1220,#070b14);
+  padding:24px;
+}
+.pin-wrap{
+  width:100%;
+  max-width:340px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+}
+.pin-lock-icon{
+  width:56px;height:56px;
+  border-radius:16px;
+  background:rgba(212,168,67,0.1);
+  border:1px solid rgba(212,168,67,0.3);
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:18px;
+}
+.pin-lock-icon svg{width:26px;height:26px;color:var(--gold-bright);}
+.pin-title{
+  font-family:var(--font-display);
+  font-size:20px;
+  font-weight:600;
+  margin-bottom:6px;
+  text-align:center;
+}
+.pin-sub{
+  font-size:13px;
+  color:var(--ink-dim);
+  text-align:center;
+  margin-bottom:30px;
+}
+.pin-dots{
+  display:flex;
+  gap:16px;
+  margin-bottom:36px;
+}
+.pin-dot{
+  width:15px;height:15px;
+  border-radius:50%;
+  border:1.5px solid rgba(212,168,67,0.4);
+  background:transparent;
+  transition:all .2s ease;
+}
+.pin-dot.filled{
+  background:var(--gold-bright);
+  border-color:var(--gold-bright);
+  box-shadow:0 0 14px rgba(240,200,105,0.6);
+}
+.pin-dot.shake-error{
+  border-color:var(--danger);
+}
+.pin-dots.shake{
+  animation:shakeX .4s ease;
+}
+@keyframes shakeX{
+  0%,100%{transform:translateX(0);}
+  20%{transform:translateX(-9px);}
+  40%{transform:translateX(8px);}
+  60%{transform:translateX(-6px);}
+  80%{transform:translateX(4px);}
+}
+.pin-keypad{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:14px;
+  width:100%;
+  max-width:280px;
+}
+.pin-key{
+  aspect-ratio:1;
+  border-radius:50%;
+  background:rgba(255,255,255,0.04);
+  border:1px solid var(--line-soft);
+  font-size:21px;
+  font-weight:600;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .12s ease;
+}
+.pin-key:active{
+  background:rgba(212,168,67,0.18);
+  border-color:rgba(212,168,67,0.5);
+  transform:scale(0.94);
+}
+.pin-key.empty{visibility:hidden;pointer-events:none;}
+.pin-key.fn svg{width:22px;height:22px;color:var(--ink-dim);}
+.pin-forgot{
+  margin-top:26px;
+  font-size:13px;
+  color:var(--ink-faint);
+  font-weight:600;
+}
+.pin-forgot b{color:var(--gold-bright);}
+.pin-error-msg{
+  font-size:12.5px;
+  color:var(--danger);
+  margin-top:-22px;
+  margin-bottom:18px;
+  min-height:16px;
+  text-align:center;
+}
 
-  @media (prefers-color-scheme: dark) and (min-width: 600px) {
-    #lv-root { box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
-  }
+/* ============ APP SHELL ============ */
+#appScreen{
+  display:none;
+}
+#appScreen.active{display:flex;flex-direction:column;}
 
-  @media (prefers-color-scheme: dark) {
-    :root { --bg: #0D1413; --surface: #14201E; --ink: #F5F5F5; --primary: #F5F5F5; }
-    body { background: #0D1413; }
-    #lv-root { background: #0D1413; }
-    .lv-header { background: rgba(13,20,19,0.92); border-color: rgba(217,119,6,0.18); }
-    .lv-search { background: rgba(245,245,245,0.1); border-color: rgba(245,245,245,0.12); color: #F5F5F5; }
-    .lv-search::placeholder { color: rgba(245,245,245,0.45); }
-    .lv-search:focus { background: rgba(245,245,245,0.15); border-color: var(--accent); }
-    .lv-add-btn { background: var(--accent); }
-    .lv-add-btn:hover { background: var(--accent-light); }
-    .lv-add-menu { background: var(--surface); border-color: rgba(245,245,245,0.1); }
-    .lv-add-menu-item { color: #F5F5F5; }
-    .lv-add-menu-item:not(:last-child) { border-color: rgba(245,245,245,0.08); }
-    .lv-filter-chip { border-color: rgba(245,245,245,0.18); color: rgba(245,245,245,0.55); }
-    .lv-filter-chip.active { background: var(--accent); color: #000; border-color: var(--accent); }
-    .lv-filter-chip:not(.active):hover { border-color: var(--accent); color: var(--accent-light); background: rgba(217,119,6,0.12); }
-    .lv-doc-card { background: var(--surface); box-shadow: 0 2px 8px rgba(0,0,0,0.4); }
-    .lv-section-label { color: rgba(245,245,245,0.45); }
-    .lv-qa-btn { background: rgba(245,245,245,0.06); border-color: rgba(245,245,245,0.12); color: rgba(245,245,245,0.55); }
-    .lv-qa-btn i { color: var(--accent); }
-    .lv-qa-btn:hover { background: rgba(217,119,6,0.14); border-color: var(--accent); color: var(--accent-light); }
-    .lv-recent-item { background: var(--surface); border-color: rgba(245,245,245,0.1); box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
-    .lv-ri-name { color: #F5F5F5; }
-    .lv-ri-meta { color: rgba(245,245,245,0.5); }
-    .lv-ri-delete { background: rgba(245,245,245,0.08); color: rgba(245,245,245,0.5); }
-    .lv-ri-delete.armed { background: #E84040; color: #fff; }
-    .lv-recent-item:hover { box-shadow: 0 4px 12px rgba(217,119,6,0.22); border-color: rgba(217,119,6,0.32); }
-    #lv-toast { box-shadow: 0 8px 30px rgba(0,0,0,0.5); }
-  }
+.app-header{
+  position:sticky;top:0;
+  z-index:30;
+  padding:calc(var(--safe-top) + 16px) 18px 14px;
+  background:linear-gradient(180deg, rgba(11,18,32,0.97), rgba(11,18,32,0.88));
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--line-soft);
+}
+.app-header-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+.app-brand{
+  display:flex;align-items:center;gap:10px;
+}
+.app-brand-mark{
+  width:34px;height:34px;
+  border-radius:10px;
+  background:linear-gradient(155deg,var(--gold-bright),var(--gold));
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+.app-brand-mark svg{width:18px;height:18px;color:#1a1306;}
+.app-brand-text{
+  font-family:var(--font-display);
+  font-size:17px;
+  font-weight:600;
+}
+.app-header-actions{display:flex;gap:8px;}
+.icon-btn{
+  width:38px;height:38px;
+  border-radius:11px;
+  background:rgba(255,255,255,0.05);
+  border:1px solid var(--line-soft);
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+  transition:background .2s ease;
+  position:relative;
+}
+.icon-btn:active{background:rgba(255,255,255,0.1);}
+.icon-btn svg{width:18px;height:18px;}
+.search-bar{
+  margin-top:14px;
+  position:relative;
+}
+.search-bar svg{
+  position:absolute;left:13px;top:50%;transform:translateY(-50%);
+  width:16px;height:16px;color:var(--ink-faint);
+}
+.search-bar input{
+  width:100%;
+  padding:11px 14px 11px 38px;
+  background:rgba(255,255,255,0.04);
+  border:1px solid var(--line-soft);
+  border-radius:12px;
+  font-size:13.5px;
+}
+.search-bar input::placeholder{color:var(--ink-faint);}
+
+.app-main{
+  flex:1;
+  overflow-y:auto;
+  padding:18px 18px calc(90px + var(--safe-bottom));
+}
+.section-title-row{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  margin-bottom:14px;
+  margin-top:6px;
+}
+.section-title{
+  font-family:var(--font-display);
+  font-size:18px;
+  font-weight:600;
+}
+.section-count{
+  font-size:12px;
+  color:var(--ink-faint);
+}
+
+/* Category cards grid */
+.cat-grid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:12px;
+  margin-bottom:28px;
+}
+.cat-card{
+  position:relative;
+  border-radius:var(--radius-md);
+  padding:16px 14px;
+  background:var(--glass);
+  border:1px solid var(--line-soft);
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  min-height:108px;
+  overflow:hidden;
+  transition:transform .15s ease, border-color .2s ease;
+}
+.cat-card:active{transform:scale(0.97);}
+.cat-card::before{
+  content:'';
+  position:absolute;
+  top:-30%;right:-20%;
+  width:90px;height:90px;
+  border-radius:50%;
+  background:radial-gradient(circle, var(--cat-glow,rgba(212,168,67,0.18)), transparent 70%);
+}
+.cat-icon-wrap{
+  width:38px;height:38px;
+  border-radius:11px;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--cat-bg,rgba(212,168,67,0.12));
+  border:1px solid var(--cat-border,rgba(212,168,67,0.25));
+  position:relative;z-index:1;
+}
+.cat-icon-wrap svg{width:19px;height:19px;color:var(--cat-fg,var(--gold-bright));}
+.cat-card-name{
+  font-size:13.5px;
+  font-weight:700;
+  color:var(--ink);
+  position:relative;z-index:1;
+  line-height:1.25;
+}
+.cat-card-count{
+  font-size:11.5px;
+  color:var(--ink-faint);
+  position:relative;z-index:1;
+}
+
+/* Documents list */
+.doc-strip{
+  display:flex;
+  gap:12px;
+  overflow-x:auto;
+  padding-bottom:6px;
+  margin:0 -18px;
+  padding-left:18px;
+  padding-right:18px;
+  scroll-snap-type:x proximity;
+}
+.doc-strip::-webkit-scrollbar{display:none;}
+.doc-card{
+  scroll-snap-align:start;
+  flex-shrink:0;
+  width:148px;
+  border-radius:var(--radius-md);
+  background:var(--glass);
+  border:1px solid var(--line-soft);
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+}
+.doc-thumb{
+  width:100%;
+  height:96px;
+  background:linear-gradient(135deg, rgba(212,168,67,0.12), rgba(255,255,255,0.02));
+  display:flex;align-items:center;justify-content:center;
+  position:relative;
+  overflow:hidden;
+}
+.doc-thumb img{width:100%;height:100%;object-fit:cover;}
+.doc-thumb svg{width:30px;height:30px;color:var(--ink-faint);}
+.doc-thumb-badge{
+  position:absolute;top:6px;right:6px;
+  background:rgba(0,0,0,0.5);
+  border-radius:6px;
+  padding:2px 6px;
+  font-size:9.5px;
+  font-weight:700;
+  letter-spacing:0.04em;
+  text-transform:uppercase;
+  color:var(--gold-bright);
+}
+.doc-card-body{padding:10px 11px;}
+.doc-card-name{
+  font-size:12.5px;
+  font-weight:600;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  margin-bottom:3px;
+}
+.doc-card-meta{
+  font-size:10.5px;
+  color:var(--ink-faint);
+}
+
+.empty-state{
+  text-align:center;
+  padding:32px 20px;
+  color:var(--ink-faint);
+  background:var(--glass);
+  border:1px dashed var(--line-soft);
+  border-radius:var(--radius-md);
+  font-size:13px;
+  line-height:1.5;
+}
+.empty-state svg{width:32px;height:32px;margin-bottom:10px;opacity:0.5;}
+
+/* Document grid (category detail / all view) */
+.doc-grid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:12px;
+}
+.doc-grid-card{
+  border-radius:var(--radius-md);
+  background:var(--glass);
+  border:1px solid var(--line-soft);
+  overflow:hidden;
+  display:flex;flex-direction:column;
+  position:relative;
+}
+.doc-grid-thumb{
+  width:100%;
+  aspect-ratio:4/3;
+  background:linear-gradient(135deg, rgba(212,168,67,0.1), rgba(255,255,255,0.02));
+  display:flex;align-items:center;justify-content:center;
+  overflow:hidden;
+}
+.doc-grid-thumb img{width:100%;height:100%;object-fit:cover;}
+.doc-grid-thumb svg{width:26px;height:26px;color:var(--ink-faint);}
+.doc-grid-body{padding:10px;}
+.doc-grid-name{
+  font-size:12px;
+  font-weight:600;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  margin-bottom:2px;
+}
+.doc-grid-meta{font-size:10px;color:var(--ink-faint);}
+.doc-grid-menu-btn{
+  position:absolute;top:6px;right:6px;
+  width:26px;height:26px;
+  border-radius:8px;
+  background:rgba(0,0,0,0.45);
+  display:flex;align-items:center;justify-content:center;
+  backdrop-filter:blur(4px);
+}
+.doc-grid-menu-btn svg{width:14px;height:14px;color:#fff;}
+
+/* Bottom nav */
+.bottom-nav{
+  position:fixed;
+  bottom:0;left:0;right:0;
+  z-index:40;
+  display:flex;
+  justify-content:center;
+  padding:0 18px calc(14px + var(--safe-bottom));
+  pointer-events:none;
+}
+.bottom-nav-inner{
+  pointer-events:auto;
+  display:flex;
+  align-items:center;
+  gap:4px;
+  background:var(--glass-strong);
+  border:1px solid var(--line-soft);
+  border-radius:20px;
+  padding:8px;
+  backdrop-filter:blur(18px);
+  -webkit-backdrop-filter:blur(18px);
+  box-shadow:0 18px 40px -12px rgba(0,0,0,0.5);
+  max-width:380px;
+  width:100%;
+}
+.nav-item{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:3px;
+  padding:8px 4px;
+  border-radius:14px;
+  color:var(--ink-faint);
+  transition:all .2s ease;
+}
+.nav-item svg{width:19px;height:19px;}
+.nav-item span{font-size:10px;font-weight:600;}
+.nav-item.active{color:var(--gold-bright);background:rgba(212,168,67,0.1);}
+.nav-add-btn{
+  width:46px;height:46px;
+  border-radius:50%;
+  background:linear-gradient(155deg,var(--gold-bright),var(--gold));
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+  box-shadow:0 12px 24px -6px rgba(212,168,67,0.5);
+  margin:0 2px;
+  transition:transform .15s ease;
+}
+.nav-add-btn:active{transform:scale(0.92);}
+.nav-add-btn svg{width:22px;height:22px;color:#1a1306;}
+
+/* ============ ADD MENU SHEET ============ */
+.sheet-overlay{
+  position:fixed;inset:0;
+  background:rgba(4,6,12,0.65);
+  backdrop-filter:blur(3px);
+  z-index:49;
+  display:none;
+  opacity:0;
+  transition:opacity .25s ease;
+}
+.sheet-overlay.show{display:block;opacity:1;}
+.sheet{
+  position:fixed;
+  left:0;right:0;bottom:0;
+  z-index:50;
+  background:var(--bg-panel);
+  border-top:1px solid var(--line);
+  border-radius:24px 24px 0 0;
+  padding:10px 20px calc(24px + var(--safe-bottom));
+  transform:translateY(100%);
+  transition:transform .32s cubic-bezier(.32,.72,0,1);
+  box-shadow:0 -20px 60px -10px rgba(0,0,0,0.6);
+  max-height:88vh;
+  overflow-y:auto;
+}
+.sheet.show{transform:translateY(0);}
+.sheet-handle{
+  width:36px;height:4px;
+  background:rgba(255,255,255,0.18);
+  border-radius:4px;
+  margin:6px auto 16px;
+}
+.sheet-title{
+  font-family:var(--font-display);
+  font-size:18px;
+  font-weight:600;
+  margin-bottom:4px;
+}
+.sheet-sub{
+  font-size:12.5px;
+  color:var(--ink-dim);
+  margin-bottom:20px;
+}
+.sheet-option{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  padding:14px 12px;
+  border-radius:14px;
+  margin-bottom:8px;
+  background:rgba(255,255,255,0.03);
+  border:1px solid var(--line-soft);
+  width:100%;
+  text-align:left;
+  transition:background .2s ease;
+}
+.sheet-option:active{background:rgba(212,168,67,0.1);}
+.sheet-option-icon{
+  width:42px;height:42px;
+  border-radius:12px;
+  background:rgba(212,168,67,0.1);
+  border:1px solid rgba(212,168,67,0.25);
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+.sheet-option-icon svg{width:20px;height:20px;color:var(--gold-bright);}
+.sheet-option-text b{display:block;font-size:14px;font-weight:700;margin-bottom:2px;}
+.sheet-option-text span{font-size:12px;color:var(--ink-faint);}
+.sheet-cat-select{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:8px;
+  margin-bottom:18px;
+}
+.sheet-cat-pill{
+  padding:10px 8px;
+  border-radius:11px;
+  background:rgba(255,255,255,0.03);
+  border:1px solid var(--line-soft);
+  font-size:12px;
+  font-weight:600;
+  text-align:center;
+  transition:all .2s ease;
+}
+.sheet-cat-pill.selected{
+  background:rgba(212,168,67,0.15);
+  border-color:rgba(212,168,67,0.5);
+  color:var(--gold-bright);
+}
+
+/* ============ CAMERA / SCAN ============ */
+#scanScreen{
+  background:#000;
+  z-index:60;
+}
+.scan-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:calc(var(--safe-top) + 14px) 16px 14px;
+  position:relative;z-index:5;
+}
+.scan-header-title{font-size:14px;font-weight:600;color:#fff;}
+.scan-viewport{
+  flex:1;
+  position:relative;
+  display:flex;align-items:center;justify-content:center;
+  overflow:hidden;
+  background:#0a0a0a;
+}
+.scan-viewport video{
+  width:100%;height:100%;
+  object-fit:cover;
+}
+.scan-viewport canvas{display:none;}
+.scan-frame-overlay{
+  position:absolute;
+  inset:8% 6%;
+  border:2px solid rgba(240,200,105,0.65);
+  border-radius:18px;
+  pointer-events:none;
+  box-shadow:0 0 0 2000px rgba(0,0,0,0.35);
+}
+.scan-frame-overlay::before,.scan-frame-overlay::after{content:'';}
+.scan-fallback{
+  text-align:center;
+  padding:32px 26px;
+  color:#cfd4e0;
+}
+.scan-fallback svg{width:42px;height:42px;color:var(--ink-faint);margin-bottom:14px;}
+.scan-fallback h3{font-size:15px;margin-bottom:8px;color:#fff;}
+.scan-fallback p{font-size:12.5px;color:var(--ink-faint);line-height:1.5;margin-bottom:18px;}
+.scan-preview-img{
+  max-width:100%;max-height:100%;
+  object-fit:contain;
+  border-radius:8px;
+}
+.scan-controls{
+  padding:20px 24px calc(28px + var(--safe-bottom));
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  position:relative;z-index:5;
+}
+.scan-side-btn{
+  width:48px;height:48px;
+  border-radius:14px;
+  background:rgba(255,255,255,0.1);
+  display:flex;align-items:center;justify-content:center;
+  color:#fff;
+}
+.scan-side-btn svg{width:21px;height:21px;}
+.scan-shutter{
+  width:70px;height:70px;
+  border-radius:50%;
+  background:#fff;
+  display:flex;align-items:center;justify-content:center;
+  border:4px solid rgba(255,255,255,0.3);
+}
+.scan-shutter::after{
+  content:'';
+  width:56px;height:56px;
+  border-radius:50%;
+  background:#fff;
+  border:2px solid #0a0a0a;
+}
+.scan-shutter:active{transform:scale(0.92);}
+.scan-confirm-row{
+  display:flex;gap:12px;
+  padding:18px 20px calc(24px + var(--safe-bottom));
+}
+.scan-confirm-row .btn-ghost,.scan-confirm-row .btn-primary{flex:1;}
+
+/* Hidden file input */
+.hidden-file-input{display:none;}
+
+/* ============ TOAST ============ */
+.toast-stack{
+  position:fixed;
+  bottom:calc(96px + var(--safe-bottom));
+  left:0;right:0;
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  z-index:80;
+  pointer-events:none;
+  padding:0 20px;
+}
+.toast{
+  background:rgba(20,28,46,0.95);
+  border:1px solid var(--line);
+  color:var(--ink);
+  padding:11px 18px;
+  border-radius:13px;
+  font-size:13px;
+  font-weight:600;
+  box-shadow:0 14px 30px -8px rgba(0,0,0,0.5);
+  display:flex;align-items:center;gap:8px;
+  animation:toastIn .3s ease, toastOut .3s ease 2.4s forwards;
+  max-width:90vw;
+}
+.toast svg{width:16px;height:16px;flex-shrink:0;}
+.toast.success svg{color:var(--success);}
+.toast.error svg{color:var(--danger);}
+.toast.info svg{color:var(--gold-bright);}
+@keyframes toastIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+@keyframes toastOut{to{opacity:0;transform:translateY(-6px);}}
+
+/* ============ DOCUMENT VIEWER MODAL ============ */
+.modal-overlay{
+  position:fixed;inset:0;
+  background:rgba(4,6,12,0.8);
+  z-index:55;
+  display:none;
+  align-items:center;justify-content:center;
+  padding:20px;
+  backdrop-filter:blur(4px);
+}
+.modal-overlay.show{display:flex;}
+.viewer-modal{
+  width:100%;max-width:420px;
+  max-height:90vh;
+  background:var(--bg-panel);
+  border:1px solid var(--line);
+  border-radius:22px;
+  overflow:hidden;
+  display:flex;flex-direction:column;
+}
+.viewer-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 16px 12px;
+  border-bottom:1px solid var(--line-soft);
+}
+.viewer-head-name{font-size:14px;font-weight:700;}
+.viewer-head-meta{font-size:11px;color:var(--ink-faint);margin-top:2px;}
+.viewer-body{
+  flex:1;
+  overflow-y:auto;
+  background:#05070d;
+  display:flex;align-items:center;justify-content:center;
+  min-height:220px;
+  padding:16px;
+}
+.viewer-body img{max-width:100%;max-height:60vh;border-radius:8px;object-fit:contain;}
+.viewer-body .doc-noimg{
+  display:flex;flex-direction:column;align-items:center;color:var(--ink-faint);
+  gap:10px;
+}
+.viewer-body .doc-noimg svg{width:48px;height:48px;}
+.viewer-actions{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:6px;
+  padding:14px 16px calc(16px + var(--safe-bottom));
+  border-top:1px solid var(--line-soft);
+}
+.viewer-action-btn{
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  padding:8px 4px;
+  border-radius:12px;
+  font-size:10.5px;
+  font-weight:600;
+  color:var(--ink-dim);
+  transition:background .2s ease;
+}
+.viewer-action-btn:active{background:rgba(255,255,255,0.06);}
+.viewer-action-btn svg{width:19px;height:19px;}
+.viewer-action-btn.danger{color:var(--danger);}
+
+/* Share sheet */
+.share-grid{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:10px;
+  margin-bottom:8px;
+}
+.share-opt{
+  display:flex;flex-direction:column;align-items:center;gap:7px;
+  padding:12px 4px;
+  border-radius:13px;
+  background:rgba(255,255,255,0.03);
+  border:1px solid var(--line-soft);
+  font-size:11px;
+  font-weight:600;
+}
+.share-opt-icon{
+  width:38px;height:38px;
+  border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--share-bg,rgba(212,168,67,0.12));
+}
+.share-opt-icon svg{width:18px;height:18px;color:var(--share-fg,var(--gold-bright));}
+.share-link-box{
+  display:flex;align-items:center;gap:8px;
+  background:rgba(255,255,255,0.04);
+  border:1px solid var(--line-soft);
+  border-radius:12px;
+  padding:11px 12px;
+  margin:14px 0;
+}
+.share-link-box input{
+  flex:1;background:none;border:none;font-size:11.5px;color:var(--ink-dim);
+  overflow:hidden;text-overflow:ellipsis;
+}
+.share-link-box button{
+  font-size:12px;font-weight:700;color:var(--gold-bright);
+  flex-shrink:0;
+}
+
+/* Settings list */
+.settings-group{
+  background:var(--glass);
+  border:1px solid var(--line-soft);
+  border-radius:var(--radius-md);
+  overflow:hidden;
+  margin-bottom:18px;
+}
+.settings-row{
+  display:flex;align-items:center;gap:12px;
+  padding:14px 16px;
+  border-bottom:1px solid var(--line-soft);
+}
+.settings-row:last-child{border-bottom:none;}
+.settings-row-icon{
+  width:34px;height:34px;border-radius:10px;
+  background:rgba(212,168,67,0.1);
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+.settings-row-icon svg{width:16px;height:16px;color:var(--gold-bright);}
+.settings-row-text{flex:1;}
+.settings-row-text b{display:block;font-size:13.5px;font-weight:600;}
+.settings-row-text span{font-size:11.5px;color:var(--ink-faint);}
+.settings-row-chevron{width:16px;height:16px;color:var(--ink-faint);flex-shrink:0;}
+.settings-row.danger b{color:var(--danger);}
+.settings-row.danger .settings-row-icon{background:rgba(226,96,79,0.1);}
+.settings-row.danger .settings-row-icon svg{color:var(--danger);}
+
+.profile-card{
+  display:flex;align-items:center;gap:14px;
+  padding:18px;
+  background:var(--glass);
+  border:1px solid var(--line-soft);
+  border-radius:var(--radius-md);
+  margin-bottom:20px;
+}
+.profile-avatar{
+  width:54px;height:54px;border-radius:50%;
+  background:linear-gradient(155deg,var(--gold-bright),var(--gold));
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-display);
+  font-size:20px;font-weight:700;color:#1a1306;
+  flex-shrink:0;
+}
+.profile-info b{display:block;font-size:15px;font-weight:700;margin-bottom:2px;}
+.profile-info span{font-size:12px;color:var(--ink-faint);}
+
+/* Confirm dialog */
+.confirm-box{
+  background:var(--bg-panel);
+  border:1px solid var(--line);
+  border-radius:18px;
+  padding:22px;
+  max-width:320px;
+  width:100%;
+}
+.confirm-icon{
+  width:46px;height:46px;border-radius:13px;
+  background:rgba(226,96,79,0.12);
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:14px;
+}
+.confirm-icon svg{width:22px;height:22px;color:var(--danger);}
+.confirm-title{font-size:15.5px;font-weight:700;margin-bottom:6px;}
+.confirm-text{font-size:13px;color:var(--ink-dim);line-height:1.5;margin-bottom:20px;}
+.confirm-row{display:flex;gap:10px;}
+.confirm-row button{flex:1;padding:11px 0;border-radius:11px;font-size:13.5px;font-weight:700;}
+.confirm-cancel{background:rgba(255,255,255,0.06);color:var(--ink);}
+.confirm-delete{background:var(--danger);color:#fff;}
+
+.pin-setup-strength{
+  font-size:12px;color:var(--ink-faint);text-align:center;margin-bottom:8px;
+}
+
+/* Responsive tweaks */
+@media (min-width:480px){
+  .cat-grid{grid-template-columns:repeat(3,1fr);}
+  .doc-grid{grid-template-columns:repeat(3,1fr);}
+}
+@media (min-width:700px){
+  .app-main{max-width:640px;margin:0 auto;width:100%;}
+  .app-header-row,.search-bar{max-width:640px;margin-left:auto;margin-right:auto;}
+  .cat-grid{grid-template-columns:repeat(4,1fr);}
+  .doc-grid{grid-template-columns:repeat(4,1fr);}
+  .auth-wrap{padding-top:8vh;}
+}
+@media (max-width:340px){
+  .cat-grid{grid-template-columns:repeat(2,1fr);gap:9px;}
+  .otp-boxes input{width:38px;height:48px;font-size:17px;}
+}
+@media (max-height:680px){
+  .auth-wrap{padding-top:2vh;}
+  .pin-dots{margin-bottom:24px;}
+  .pin-keypad{gap:10px;}
+}
 </style>
 </head>
 <body>
-<div id="lv-root">
 
-  <!-- HEADER -->
-  <header class="lv-header">
-    <a class="lv-logo" href="#" aria-label="LifeVault home">
-      <div class="lv-logo-icon" aria-hidden="true">
-        <svg width="18" height="20" viewBox="0 0 18 20" fill="none">
-          <rect x="2" y="3" width="14" height="15" rx="2.5" stroke="#F59E0B" stroke-width="1.6"/>
-          <line x1="5" y1="8" x2="13" y2="8" stroke="#F59E0B" stroke-width="1.3" stroke-linecap="round"/>
-          <line x1="5" y1="11.5" x2="10" y2="11.5" stroke="#F59E0B" stroke-width="1.3" stroke-linecap="round"/>
-          <circle cx="14" cy="4" r="3" fill="#013E37" stroke="#F59E0B" stroke-width="1.3"/>
-          <path d="M13 4l.8.8 1.4-1.4" stroke="#F59E0B" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
+<!-- ============ SPLASH ============ -->
+<div class="screen active" id="splashScreen">
+  <div class="splash-mark">
+    <div class="splash-emblem">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#1a1306" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3.5v5.2c0 4.9-3.4 8.9-8 10.3-4.6-1.4-8-5.4-8-10.3V5.5L12 2z"/><path d="M9.5 12l1.8 1.8L15 10"/></svg>
+    </div>
+    <div class="splash-word">LifeVault</div>
+    <div class="splash-tag">Your Documents, Secured</div>
+    <div class="splash-bar"><div class="splash-bar-fill"></div></div>
+  </div>
+</div>
+
+<!-- ============ AUTH ============ -->
+<div class="screen" id="authScreen">
+  <div class="auth-wrap">
+    <div class="auth-emblem">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#1a1306" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3.5v5.2c0 4.9-3.4 8.9-8 10.3-4.6-1.4-8-5.4-8-10.3V5.5L12 2z"/><path d="M9.5 12l1.8 1.8L15 10"/></svg>
+    </div>
+    <div class="auth-title" id="authTitle">Welcome back</div>
+    <div class="auth-sub" id="authSub">Log in to access your secured vault</div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tabLogin" onclick="switchAuthTab('login')">Log In</button>
+      <button class="auth-tab" id="tabSignup" onclick="switchAuthTab('signup')">Sign Up</button>
+    </div>
+
+    <div class="auth-error" id="authError">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span id="authErrorText">Something went wrong</span>
+    </div>
+
+    <div class="method-toggle">
+      <button class="method-btn active" id="methodPhoneBtn" onclick="switchAuthMethod('phone')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18"/></svg>
+        Phone
+      </button>
+      <button class="method-btn" id="methodEmailBtn" onclick="switchAuthMethod('email')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 7l8.9 6.2a3 3 0 0 0 3.4 0L22 7"/></svg>
+        Email
+      </button>
+    </div>
+
+    <form id="authForm" onsubmit="handleAuthSubmit(event)" autocomplete="off">
+      <div class="field" id="nameField" style="display:none;">
+        <label class="field-label">Full name</label>
+        <div class="field-input-wrap">
+          <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a7 7 0 0 1 14 0v1"/></svg>
+          <input type="text" id="nameInput" placeholder="Your name">
+        </div>
       </div>
-      <span class="lv-logo-text">Life<span>Vault</span></span>
-    </a>
-    <div class="lv-search-wrap">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: rgba(1,62,55,0.45); pointer-events: none;" aria-hidden="true">
-        <circle cx="11" cy="11" r="8"/>
-        <path d="m21 21-4.35-4.35"/>
-      </svg>
-      <input class="lv-search" type="search" id="lv-search-input" placeholder="Search documents…" aria-label="Search documents" autocomplete="off" />
+
+      <div class="field" id="phoneField">
+        <label class="field-label">Phone number</label>
+        <div class="field-input-wrap">
+          <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18"/></svg>
+          <input type="tel" id="phoneInput" placeholder="+91 98765 43210" inputmode="numeric">
+        </div>
+      </div>
+
+      <div class="field" id="emailField" style="display:none;">
+        <label class="field-label">Email address</label>
+        <div class="field-input-wrap">
+          <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 7l8.9 6.2a3 3 0 0 0 3.4 0L22 7"/></svg>
+          <input type="email" id="emailInput" placeholder="you@example.com">
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="field-label">Password</label>
+        <div class="field-input-wrap">
+          <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+          <input type="password" id="passwordInput" placeholder="Enter password" style="padding-right:40px;">
+          <svg class="field-toggle-eye" id="pwToggleIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" onclick="togglePasswordVisibility()" style="cursor:pointer;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </div>
+      </div>
+
+      <div style="text-align:right;margin-bottom:18px;" id="forgotRow">
+        <button type="button" style="font-size:12.5px;color:var(--gold-bright);font-weight:600;" onclick="goToForgotPassword()">Forgot password?</button>
+      </div>
+
+      <button type="submit" class="btn-primary" id="authSubmitBtn">Log In</button>
+    </form>
+
+    <div class="auth-foot-link" id="authFootLink">
+      Don't have an account? <b onclick="switchAuthTab('signup')" style="cursor:pointer;">Sign up</b>
     </div>
-    <button class="lv-add-btn" id="lv-add-btn" aria-label="Add document" aria-haspopup="true" aria-expanded="false" type="button">+</button>
-    <div class="lv-add-menu" id="lv-add-menu" role="menu">
-      <button class="lv-add-menu-item" id="menu-scan" role="menuitem" type="button">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="6" width="18" height="14" rx="2"/><circle cx="12" cy="13" r="3.5"/><path d="M8 6l1.5-2h5L16 6"/></svg>
-        Scan document
+  </div>
+</div>
+
+<!-- ============ FORGOT PASSWORD - REQUEST OTP ============ -->
+<div class="screen" id="forgotScreen">
+  <div class="auth-wrap">
+    <div class="back-row" onclick="backToLogin()" style="cursor:pointer;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      Back to Log In
+    </div>
+    <div class="auth-title">Reset password</div>
+    <div class="auth-sub">Enter your registered phone number. We'll send a 6-digit OTP to verify it's you.</div>
+
+    <div class="auth-error" id="forgotError">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span id="forgotErrorText">Something went wrong</span>
+    </div>
+
+    <div class="field">
+      <label class="field-label">Phone number</label>
+      <div class="field-input-wrap">
+        <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18"/></svg>
+        <input type="tel" id="forgotPhoneInput" placeholder="+91 98765 43210" inputmode="numeric">
+      </div>
+    </div>
+
+    <button class="btn-primary" onclick="sendResetOtp()">Send OTP</button>
+  </div>
+</div>
+
+<!-- ============ OTP VERIFY ============ -->
+<div class="screen" id="otpScreen">
+  <div class="auth-wrap">
+    <div class="back-row" onclick="backToForgot()" style="cursor:pointer;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      Change number
+    </div>
+    <div class="auth-title">Verify OTP</div>
+    <div class="otp-hint">Enter the 6-digit code sent to <b id="otpPhoneDisplay">+91 98765 43210</b></div>
+
+    <div class="otp-demo-banner">
+      Demo mode — no real SMS gateway is connected.<br>Your code is: <b id="otpDemoCode">000000</b>
+    </div>
+
+    <div class="auth-error" id="otpError">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span id="otpErrorText">Incorrect code</span>
+    </div>
+
+    <div class="otp-boxes" id="otpBoxes">
+      <input type="text" maxlength="1" inputmode="numeric" data-i="0">
+      <input type="text" maxlength="1" inputmode="numeric" data-i="1">
+      <input type="text" maxlength="1" inputmode="numeric" data-i="2">
+      <input type="text" maxlength="1" inputmode="numeric" data-i="3">
+      <input type="text" maxlength="1" inputmode="numeric" data-i="4">
+      <input type="text" maxlength="1" inputmode="numeric" data-i="5">
+    </div>
+
+    <div class="resend-link">Didn't get it? <b onclick="resendOtp()" style="cursor:pointer;">Resend code</b></div>
+
+    <button class="btn-primary" onclick="verifyOtp()">Verify</button>
+  </div>
+</div>
+
+<!-- ============ RESET PASSWORD (after OTP) ============ -->
+<div class="screen" id="newPasswordScreen">
+  <div class="auth-wrap">
+    <div class="auth-title">Set new password</div>
+    <div class="auth-sub">Choose a new password for your account</div>
+
+    <div class="auth-error" id="newPwError">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span id="newPwErrorText">Something went wrong</span>
+    </div>
+
+    <div class="field">
+      <label class="field-label">New password</label>
+      <div class="field-input-wrap">
+        <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+        <input type="password" id="newPasswordInput" placeholder="New password">
+      </div>
+    </div>
+    <div class="field">
+      <label class="field-label">Confirm password</label>
+      <div class="field-input-wrap">
+        <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+        <input type="password" id="confirmPasswordInput" placeholder="Confirm new password">
+      </div>
+    </div>
+
+    <button class="btn-primary" onclick="submitNewPassword()">Update password</button>
+  </div>
+</div>
+
+<!-- ============ PIN SETUP ============ -->
+<div class="screen" id="pinSetupScreen">
+  <div class="pin-wrap">
+    <div class="pin-lock-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+    </div>
+    <div class="pin-title" id="pinSetupTitle">Create your PIN</div>
+    <div class="pin-sub" id="pinSetupSub">This 6-digit PIN will lock your vault</div>
+    <div class="pin-dots" id="pinSetupDots">
+      <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
+      <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
+    </div>
+    <div class="pin-keypad" id="pinSetupKeypad"></div>
+  </div>
+</div>
+
+<!-- ============ PIN LOCK (entry) ============ -->
+<div class="screen" id="pinScreen">
+  <div class="pin-wrap">
+    <div class="pin-lock-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+    </div>
+    <div class="pin-title">Enter your PIN</div>
+    <div class="pin-sub" id="pinLockSub">Unlock LifeVault to continue</div>
+    <div class="pin-dots" id="pinLockDots">
+      <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
+      <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
+    </div>
+    <div class="pin-error-msg" id="pinLockError"></div>
+    <div class="pin-keypad" id="pinLockKeypad"></div>
+    <div class="pin-forgot" onclick="logoutFromPinLock()" style="cursor:pointer;">Forgot PIN? <b>Log out</b></div>
+  </div>
+</div>
+
+<!-- ============ MAIN APP ============ -->
+<div class="screen" id="appScreen">
+  <div class="app-header">
+    <div class="app-header-row">
+      <div class="app-brand">
+        <div class="app-brand-mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#1a1306" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3.5v5.2c0 4.9-3.4 8.9-8 10.3-4.6-1.4-8-5.4-8-10.3V5.5L12 2z"/></svg>
+        </div>
+        <div class="app-brand-text">LifeVault</div>
+      </div>
+      <div class="app-header-actions">
+        <button class="icon-btn" onclick="lockVaultNow()" title="Lock vault">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+        </button>
+        <button class="icon-btn" onclick="goToView('settings')" title="Settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="search-bar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="searchInput" placeholder="Search documents..." oninput="handleSearch(this.value)">
+    </div>
+  </div>
+
+  <div class="app-main" id="appMain">
+    <!-- Dynamically rendered per view -->
+  </div>
+
+  <div class="bottom-nav">
+    <div class="bottom-nav-inner">
+      <button class="nav-item active" id="navHome" onclick="goToView('home')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <span>Home</span>
       </button>
-      <button class="lv-add-menu-item" id="menu-upload" role="menuitem" type="button">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3v12m0 0l-4-4m4 4l4-4M3 17h18"/></svg>
-        Upload file
+      <button class="nav-item" id="navAll" onclick="goToView('allDocs')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <span>Documents</span>
+      </button>
+      <button class="nav-add-btn" onclick="openAddSheet()" title="Add document">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>
+      <button class="nav-item" id="navRecent" onclick="goToView('recent')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span>Recent</span>
+      </button>
+      <button class="nav-item" id="navSettings" onclick="goToView('settings')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span>Settings</span>
       </button>
     </div>
-  </header>
-
-  <!-- FILTERS -->
-  <nav class="lv-filters" aria-label="Category filters">
-    <button class="lv-filter-chip active" data-filter="all" type="button">All</button>
-    <button class="lv-filter-chip" data-filter="identity" type="button">Identity</button>
-    <button class="lv-filter-chip" data-filter="finance" type="button">Finance</button>
-    <button class="lv-filter-chip" data-filter="medical" type="button">Medical</button>
-    <button class="lv-filter-chip" data-filter="legal" type="button">Legal</button>
-    <button class="lv-filter-chip" data-filter="property" type="button">Property</button>
-  </nav>
-
-  <!-- SECTION LABEL -->
-  <div class="lv-section-label">Your Documents</div>
-
-  <!-- CARD STACK CAROUSEL -->
-  <div class="lv-stack-area" id="lv-stack" role="region" aria-label="Document carousel — swipe to browse"></div>
-
-  <!-- SWIPE HINT -->
-  <p class="lv-swipe-hint" aria-hidden="true">← swipe to browse →</p>
-
-  <!-- DOTS -->
-  <div class="lv-dots" id="lv-dots" aria-hidden="true"></div>
-
-  <!-- QUICK ACTIONS -->
-  <div class="lv-quick-actions" role="group" aria-label="Quick actions">
-    <button class="lv-qa-btn" id="btn-scan" aria-label="Scan document with camera" type="button">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-        <rect x="3" y="6" width="18" height="14" rx="2"/><circle cx="12" cy="13" r="3.5"/><path d="M8 6l1.5-2h5L16 6"/>
-      </svg>
-      <span>Scan</span>
-    </button>
-    <button class="lv-qa-btn" id="btn-upload" aria-label="Upload document" type="button">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-        <path d="M12 3v12m0 0l-4-4m4 4l4-4M3 17h18"/>
-      </svg>
-      <span>Upload</span>
-    </button>
-    <button class="lv-qa-btn" id="btn-secure" aria-label="Vault security settings" type="button">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-        <circle cx="12" cy="16" r="1"/>
-      </svg>
-      <span>Secure</span>
-    </button>
-    <button class="lv-qa-btn" id="btn-share" aria-label="Share documents" type="button">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-        <path d="M22 2L11 13M22 2l-7 20L11 13l-8-1 20-10z"/>
-      </svg>
-      <span>Share</span>
-    </button>
-  </div>
-
-  <!-- RECENTLY VIEWED -->
-  <div class="lv-recent-label">Recently Viewed</div>
-  <div class="lv-recent-list" id="lv-recent" role="list" aria-label="Recently viewed documents"></div>
-
-</div>
-
-<!-- SCAN OVERLAY -->
-<div class="lv-scan-overlay" id="lv-scan-overlay" role="dialog" aria-label="Scan document" aria-modal="true">
-  <p class="lv-scan-status" id="lv-scan-status">Point your camera at the document</p>
-  <video class="lv-scan-video" id="lv-scan-video" autoplay playsinline muted></video>
-  <canvas class="lv-scan-canvas" id="lv-scan-canvas"></canvas>
-  <div class="lv-scan-preview-wrap" id="lv-scan-preview-wrap">
-    <img id="lv-scan-preview-img" alt="Captured document preview" />
-  </div>
-  <div class="lv-scan-fallback" id="lv-scan-fallback">
-    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="6" width="18" height="14" rx="2"/><circle cx="12" cy="13" r="3.5"/><path d="M8 6l1.5-2h5L16 6"/><line x1="3" y1="3" x2="21" y2="21" stroke="#E84040" stroke-width="1.8"/></svg>
-    <p class="lv-scan-fallback-title">Camera isn't available here</p>
-    <p class="lv-scan-fallback-sub">This browser/preview is blocking camera access, or no camera was found. You can still add the document by uploading a photo or file instead.</p>
-    <button class="lv-scan-fallback-upload" id="lv-scan-fallback-upload" type="button">Upload instead</button>
-  </div>
-  <input class="lv-scan-name-input" id="lv-scan-name-input" type="text" placeholder="Name this document…" maxlength="60" />
-  <div class="lv-scan-controls" id="lv-scan-controls">
-    <button class="lv-scan-close" id="lv-scan-close" aria-label="Close scanner" type="button">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
-    </button>
-    <button class="lv-scan-shutter" id="lv-scan-shutter" aria-label="Capture photo" type="button"></button>
-    <button class="lv-scan-flip" id="lv-scan-flip" aria-label="Flip camera" type="button">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 2l4 4-4 4M3 12a9 9 0 0 1 15-6.7L21 6M7 22l-4-4 4-4M21 12a9 9 0 0 1-15 6.7L3 18"/></svg>
-    </button>
-  </div>
-  <div class="lv-scan-save-row" id="lv-scan-save-row">
-    <button class="lv-scan-retake" id="lv-scan-retake" type="button">Retake</button>
-    <button class="lv-scan-usephoto" id="lv-scan-usephoto" type="button">Save document</button>
   </div>
 </div>
 
-<input type="file" id="lv-upload-input" accept="image/*,application/pdf" />
-<input type="file" id="lv-scan-fallback-input" accept="image/*" capture="environment" />
+<!-- ============ ADD DOCUMENT SHEET ============ -->
+<div class="sheet-overlay" id="addSheetOverlay" onclick="closeAddSheet()"></div>
+<div class="sheet" id="addSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title">Add a document</div>
+  <div class="sheet-sub">Scan with your camera or upload an existing file</div>
+  <button class="sheet-option" onclick="openScanFromSheet()">
+    <div class="sheet-option-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+    </div>
+    <div class="sheet-option-text"><b>Scan document</b><span>Use your camera to capture a document</span></div>
+  </button>
+  <button class="sheet-option" onclick="openUploadFromSheet()">
+    <div class="sheet-option-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    </div>
+    <div class="sheet-option-text"><b>Upload file</b><span>Choose a photo or file from your device</span></div>
+  </button>
+  <input type="file" id="fileUploadInput" class="hidden-file-input" accept="image/*,.pdf" onchange="handleFileUpload(event)">
+</div>
 
-<!-- DOCUMENT VIEWER OVERLAY -->
-<div class="lv-viewer-overlay" id="lv-viewer-overlay" role="dialog" aria-label="Document viewer" aria-modal="true">
-  <div class="lv-viewer-top">
-    <button class="lv-viewer-close" id="lv-viewer-close" aria-label="Close viewer" type="button">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
-    </button>
-    <div class="lv-viewer-title" id="lv-viewer-title">Document</div>
-    <button class="lv-viewer-delete" id="lv-viewer-delete" aria-label="Delete document" title="Delete document" type="button">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16ZM10 11v6M14 11v6"/></svg>
-    </button>
+<!-- ============ CATEGORY PICKER SHEET (after capture/upload) ============ -->
+<div class="sheet-overlay" id="saveSheetOverlay" onclick="closeSaveSheet()"></div>
+<div class="sheet" id="saveSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title">Save document</div>
+  <div class="sheet-sub">Give it a name and choose a category</div>
+
+  <div class="field">
+    <label class="field-label">Document name</label>
+    <div class="field-input-wrap" style="display:block;">
+      <input type="text" id="saveDocName" placeholder="e.g. Aadhaar Front" style="padding-left:14px;">
+    </div>
   </div>
-  <div class="lv-viewer-body">
-    <img id="lv-viewer-img" alt="Document preview" style="display:none;" />
-    <div class="lv-viewer-placeholder" id="lv-viewer-placeholder">
-      <div class="lv-viewer-placeholder-icon" id="lv-viewer-placeholder-icon">📄</div>
-      <div class="lv-viewer-placeholder-title" id="lv-viewer-placeholder-title">No preview available</div>
-      <div class="lv-viewer-placeholder-sub">This is a sample document with no stored file. Documents you scan or upload yourself will show their actual image here.</div>
+
+  <label class="field-label" style="display:block;margin-bottom:8px;">Category</label>
+  <div class="sheet-cat-select" id="saveCatSelect"></div>
+
+  <button class="btn-primary" onclick="confirmSaveDocument()">Save document</button>
+</div>
+
+<!-- ============ SCAN SCREEN ============ -->
+<div class="screen" id="scanScreen">
+  <div class="scan-header">
+    <button class="icon-btn" style="background:rgba(255,255,255,0.1);" onclick="closeScanScreen()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <div class="scan-header-title">Scan document</div>
+    <div style="width:38px;"></div>
+  </div>
+  <div class="scan-viewport" id="scanViewport">
+    <video id="scanVideo" autoplay playsinline muted></video>
+    <canvas id="scanCanvas"></canvas>
+    <div class="scan-frame-overlay" id="scanFrameOverlay"></div>
+  </div>
+  <div class="scan-controls" id="scanControlsLive">
+    <button class="scan-side-btn" onclick="triggerUploadInsteadOfScan()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+    </button>
+    <button class="scan-shutter" onclick="captureFromCamera()"></button>
+    <div style="width:48px;"></div>
+  </div>
+  <div class="scan-confirm-row" id="scanConfirmRow" style="display:none;">
+    <button class="btn-ghost" onclick="retakePhoto()">Retake</button>
+    <button class="btn-primary" onclick="useCapturedPhoto()">Use photo</button>
+  </div>
+</div>
+
+<!-- ============ DOCUMENT VIEWER MODAL ============ -->
+<div class="modal-overlay" id="viewerOverlay" onclick="if(event.target===this)closeViewer()">
+  <div class="viewer-modal">
+    <div class="viewer-head">
+      <div>
+        <div class="viewer-head-name" id="viewerName">Document</div>
+        <div class="viewer-head-meta" id="viewerMeta">Category · Date</div>
+      </div>
+      <button class="icon-btn" onclick="closeViewer()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="viewer-body" id="viewerBody"></div>
+    <div class="viewer-actions">
+      <button class="viewer-action-btn" onclick="downloadCurrentDoc()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download
+      </button>
+      <button class="viewer-action-btn" onclick="openShareSheetForCurrent()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg>
+        Share
+      </button>
+      <button class="viewer-action-btn" onclick="toggleSecureCurrentDoc()" id="viewerSecureBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+        <span id="viewerSecureLabel">Secure</span>
+      </button>
+      <button class="viewer-action-btn danger" onclick="deleteCurrentDoc()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+        Delete
+      </button>
     </div>
   </div>
 </div>
 
-<!-- TOAST -->
-<div id="lv-toast" role="status" aria-live="polite"></div>
-
-<script>
-(function () {
-  "use strict";
-
-  /* ─── DATA ─── */
-  var DOCS = [
-    { id:1, name:"Passport",          filter:"identity", category:"Identity", updated:"Jun 12, 2025", emoji:"🪪", bg:"#EEF3FD", tagBg:"#C7D7FA", tagColor:"#1A3A7C", stripe:"#4A80F0", image:null },
-    { id:2, name:"Tax Return 2024",   filter:"finance",  category:"Finance",  updated:"Apr 3, 2025",  emoji:"📑", bg:"#FEF6EC", tagBg:"#FDDDB0", tagColor:"#7C3D00", stripe:"#E8921A", image:null },
-    { id:3, name:"Health Insurance",  filter:"medical",  category:"Medical",  updated:"Jan 20, 2025", emoji:"🏥", bg:"#ECFAF3", tagBg:"#B5EDCA", tagColor:"#0F5C30", stripe:"#2EC270", image:null },
-    { id:4, name:"Lease Agreement",   filter:"legal",    category:"Legal",    updated:"Mar 1, 2025",  emoji:"⚖️", bg:"#F5EFF9", tagBg:"#DFC9F5", tagColor:"#4A1370", stripe:"#9B59D1", image:null },
-    { id:5, name:"Property Deed",     filter:"property", category:"Property", updated:"Dec 15, 2024", emoji:"🏠", bg:"#FFF0EE", tagBg:"#FFCAC4", tagColor:"#7C1010", stripe:"#E84040", image:null },
-    { id:6, name:"Birth Certificate", filter:"identity", category:"Identity", updated:"May 5, 2024",  emoji:"📜", bg:"#EEF3FD", tagBg:"#C7D7FA", tagColor:"#1A3A7C", stripe:"#4A80F0", image:null },
-    { id:7, name:"Driver's License",  filter:"identity", category:"Identity", updated:"Aug 9, 2024",  emoji:"🚗", bg:"#EEF3FD", tagBg:"#C7D7FA", tagColor:"#1A3A7C", stripe:"#4A80F0", image:null },
-    { id:8, name:"Bank Statement",    filter:"finance",  category:"Finance",  updated:"Jun 1, 2025",  emoji:"🏦", bg:"#FEF6EC", tagBg:"#FDDDB0", tagColor:"#7C3D00", stripe:"#E8921A", image:null }
-  ];
-  var MAX_CARDS = 6; // card stack limit — keeps the carousel light and quick to swipe
-  var nextDocId = 9;
-
-  var RECENT = [
-    { docId:1, name:"Passport",         meta:"Identity · Jun 12, 2025", emoji:"🪪", bg:"#EEF3FD", image:null },
-    { docId:3, name:"Health Insurance", meta:"Medical · Jan 20, 2025",  emoji:"🏥", bg:"#ECFAF3", image:null },
-    { docId:2, name:"Tax Return 2024",  meta:"Finance · Apr 3, 2025",   emoji:"📑", bg:"#FEF6EC", image:null }
-  ];
-
-  var GENERIC_META = { filter:"legal", category:"Other", emoji:"📄", bg:"#F4F4F2", tagBg:"#E2E2DC", tagColor:"#3A3A35", stripe:"#8A8A80" };
-
-  /* ─── PERSISTENCE ───
-     Saves the vault to storage so an uploaded/scanned document is still there
-     after a refresh, instead of resetting back to the demo data. Personal
-     (not shared) — only this user sees their own vault. */
-  var STORAGE_KEY = "lifevault-data";
-  var storageReady = !!(window.storage && window.storage.get && window.storage.set);
-
-  function saveState() {
-    if (!storageReady) return;
-    var payload = JSON.stringify({ docs: DOCS, recent: RECENT, nextDocId: nextDocId });
-    window.storage.set(STORAGE_KEY, payload, false).catch(function (err) {
-      console.error("LifeVault: save failed", err);
-      toast("⚠️ Couldn't save — changes may not survive a refresh");
-    });
-  }
-
-  function loadState() {
-    if (!storageReady) return Promise.resolve(false);
-    return window.storage.get(STORAGE_KEY, false)
-      .then(function (result) {
-        if (!result || !result.value) return false;
-        var parsed = JSON.parse(result.value);
-        if (!parsed || !Array.isArray(parsed.docs)) return false;
-        DOCS = parsed.docs;
-        RECENT = Array.isArray(parsed.recent) ? parsed.recent : [];
-        if (typeof parsed.nextDocId === "number") {
-          nextDocId = parsed.nextDocId;
-        } else {
-          nextDocId = DOCS.reduce(function (max, d) { return Math.max(max, d.id); }, 0) + 1;
-        }
-        return true;
-      })
-      .catch(function () {
-        // No saved vault yet (first run) — fall back to the starter demo set.
-        return false;
-      });
-  }
-
-  /* Keeps an uploaded/scanned image from ballooning storage size — downscales
-     to a max dimension and re-encodes as JPEG before it's ever stored. */
-  function resizeImageFile(file, maxDim, callback) {
-    var url = URL.createObjectURL(file);
-    var img = new Image();
-    img.onload = function () {
-      var w = img.naturalWidth, h = img.naturalHeight;
-      var scale = Math.min(1, maxDim / Math.max(w, h));
-      var cw = Math.max(1, Math.round(w * scale));
-      var ch = Math.max(1, Math.round(h * scale));
-      var canvas = document.createElement("canvas");
-      canvas.width = cw;
-      canvas.height = ch;
-      canvas.getContext("2d").drawImage(img, 0, 0, cw, ch);
-      URL.revokeObjectURL(url);
-      callback(canvas.toDataURL("image/jpeg", 0.82));
-    };
-    img.onerror = function () {
-      URL.revokeObjectURL(url);
-      callback(null);
-    };
-    img.src = url;
-  }
-
-  function downscaleCanvas(sourceCanvas, maxDim) {
-    var w = sourceCanvas.width, h = sourceCanvas.height;
-    var scale = Math.min(1, maxDim / Math.max(w, h));
-    if (scale >= 1) return sourceCanvas.toDataURL("image/jpeg", 0.85);
-    var cw = Math.max(1, Math.round(w * scale));
-    var ch = Math.max(1, Math.round(h * scale));
-    var out = document.createElement("canvas");
-    out.width = cw;
-    out.height = ch;
-    out.getContext("2d").drawImage(sourceCanvas, 0, 0, cw, ch);
-    return out.toDataURL("image/jpeg", 0.82);
-  }
-
-  /* ─── STATE ─── */
-  var currentIndex   = 0;
-  var activeFilter    = "all";
-  var isDragging      = false;
-  var dragStartX      = 0;
-  var dragDeltaX       = 0;
-  var hadRealDrag      = false;
-  var autoTimer        = null;
-  var currentFiltered = []; // the list currently rendered in the stack
-  var mediaStream      = null;
-  var facingMode        = "environment";
-  var capturedDataUrl  = null;
-
-  /* ─── HELPERS ─── */
-  function $(id) { return document.getElementById(id); }
-  function qsAll(sel) { return document.querySelectorAll(sel); }
-  function todayLabel() {
-    return new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-  }
-
-  function contrastColors(hexBg) {
-    var hex = (hexBg || "#FFFFFF").replace("#", "");
-    if (hex.length === 3) hex = hex.split("").map(function (c) { return c + c; }).join("");
-    var r = parseInt(hex.substring(0, 2), 16) / 255;
-    var g = parseInt(hex.substring(2, 4), 16) / 255;
-    var b = parseInt(hex.substring(4, 6), 16) / 255;
-    function lin(c) { return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }
-    var L = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
-    var isLight = L > 0.5;
-    return isLight
-      ? { name: "#1A1A1A", date: "rgba(26,26,26,0.55)" }
-      : { name: "#FAFAF8", date: "rgba(250,250,248,0.65)" };
-  }
-
-  function toast(msg) {
-    var t = $("lv-toast");
-    if (!t) return;
-    t.textContent = msg;
-    t.classList.add("show");
-    clearTimeout(t._timer);
-    t._timer = setTimeout(function () { t.classList.remove("show"); }, 2400);
-  }
-
-  function getFiltered(query) {
-    var list = activeFilter === "all" ? DOCS.slice() : DOCS.filter(function (d) { return d.filter === activeFilter; });
-    if (query) {
-      var q = query.toLowerCase();
-      list = list.filter(function (d) {
-        return d.name.toLowerCase().indexOf(q) !== -1 || d.category.toLowerCase().indexOf(q) !== -1;
-      });
-    }
-    return list.slice(0, MAX_CARDS);
-  }
-
-  function findDocById(id) {
-    for (var i = 0; i < DOCS.length; i++) {
-      if (DOCS[i].id === id) return DOCS[i];
-    }
-    return null;
-  }
-
-  /* Removes a document everywhere: the main vault list, the recently-viewed
-     list, and closes the viewer/stack if that doc was open. */
-  function deleteDocument(id) {
-    var doc = findDocById(id);
-    var name = doc ? doc.name : "Document";
-    for (var i = DOCS.length - 1; i >= 0; i--) {
-      if (DOCS[i].id === id) DOCS.splice(i, 1);
-    }
-    for (var j = RECENT.length - 1; j >= 0; j--) {
-      if (RECENT[j].docId === id) RECENT.splice(j, 1);
-    }
-    if (currentViewerDocId === id) {
-      closeViewer();
-      currentViewerDocId = null;
-    }
-    currentIndex = 0;
-    buildStack();
-    buildRecent();
-    saveState();
-    toast("🗑️ \"" + name + "\" deleted");
-  }
-
-  /* A recent entry that has no matching doc in the vault (shouldn't normally
-     happen, but kept as a safe fallback) — just drop it from the recent list. */
-  function removeFromRecentOnly(entry) {
-    for (var j = RECENT.length - 1; j >= 0; j--) {
-      if (RECENT[j] === entry) RECENT.splice(j, 1);
-    }
-    buildRecent();
-    saveState();
-    toast("🗑️ Removed from recently viewed");
-  }
-
-  /* ─── DOCUMENT VIEWER ─── */
-  var currentViewerDocId = null;
-  function openViewer(doc) {
-    var overlay = $("lv-viewer-overlay");
-    var img = $("lv-viewer-img");
-    var placeholder = $("lv-viewer-placeholder");
-    var placeholderIcon = $("lv-viewer-placeholder-icon");
-    var placeholderTitle = $("lv-viewer-placeholder-title");
-
-    currentViewerDocId = (doc.id != null) ? doc.id : null;
-    var delBtn = $("lv-viewer-delete");
-    delBtn.classList.remove("armed");
-    delBtn.title = "Delete document";
-
-    $("lv-viewer-title").textContent = doc.name;
-
-    if (doc.image) {
-      img.src = doc.image;
-      img.style.display = "";
-      placeholder.classList.remove("show");
-    } else {
-      img.style.display = "none";
-      img.src = "";
-      placeholder.classList.add("show");
-      placeholderIcon.textContent = doc.emoji || "📄";
-      placeholderIcon.style.background = doc.bg || "rgba(255,255,255,0.1)";
-      placeholderTitle.textContent = "No preview available";
-    }
-    overlay.classList.add("open");
-  }
-  function closeViewer() {
-    $("lv-viewer-overlay").classList.remove("open");
-  }
-
-  /* ─── DOTS ─── */
-  function buildDots(n) {
-    var el = $("lv-dots");
-    var html = "";
-    for (var i = 0; i < n; i++) {
-      html += '<div class="lv-dot' + (i === currentIndex ? " active" : "") + '"></div>';
-    }
-    el.innerHTML = html;
-  }
-  function updateDots() {
-    var dots = qsAll(".lv-dot");
-    dots.forEach(function (d, i) {
-      d.className = "lv-dot" + (i === currentIndex ? " active" : "");
-    });
-  }
-
-  /* ─── CARD LAYOUT ─── */
-  function cardTransform(pos) {
-    var scale   = 1 - pos * 0.04;
-    var transY  = pos * 16;
-    var transZ  = -pos * 35;
-    var txDrag  = pos === 0 ? dragDeltaX * 0.65 : 0;
-    var rotDeg  = pos === 0 ? dragDeltaX * 0.055 : 0;
-    var opacity = pos >= 5 ? 0 : 1 - pos * 0.17;
-    return { scale: scale, transY: transY, transZ: transZ, txDrag: txDrag, rotDeg: rotDeg, opacity: opacity };
-  }
-
-  function applyStyles() {
-    var n = currentFiltered.length;
-    if (!n) return;
-    var cards = qsAll(".lv-doc-card");
-    var total = cards.length;
-    cards.forEach(function (card, i) {
-      var pos = ((i - currentIndex) % n + n) % n;
-      var t = cardTransform(pos);
-      card.style.transform = "translateX(" + t.txDrag + "px) translateY(" + t.transY + "px) translateZ(" + t.transZ + "px) scale(" + t.scale + ") rotate(" + t.rotDeg + "deg)";
-      card.style.opacity = t.opacity;
-      card.style.zIndex = total - pos + 10;
-      card.style.boxShadow = pos === 0
-        ? "0 10px 50px rgba(1,62,55,0.18), 0 2px 12px rgba(1,62,55,0.12)"
-        : "0 " + (3 + pos * 2) + "px " + (8 + pos * 10) + "px rgba(1,62,55," + Math.max(0, 0.1 - pos * 0.015) + ")";
-      card.style.transition = isDragging
-        ? "none"
-        : "transform 0.44s cubic-bezier(0.34,1.56,0.64,1), opacity 0.32s ease, box-shadow 0.32s ease";
-    });
-  }
-
-  /* ─── BUILD STACK ─── */
-  function buildStack() {
-    clearInterval(autoTimer);
-    var query = $("lv-search-input").value.trim();
-    currentFiltered = getFiltered(query);
-    var stack = $("lv-stack");
-    stack.innerHTML = "";
-
-    if (currentFiltered.length === 0) {
-      stack.innerHTML = '<div class="lv-empty"><i class="ti ti-file-off"></i><span>No documents found</span></div>';
-      $("lv-dots").innerHTML = "";
-      return;
-    }
-
-    if (currentIndex > currentFiltered.length - 1) currentIndex = 0;
-    buildDots(Math.min(currentFiltered.length, 8));
-
-    currentFiltered.forEach(function (doc, i) {
-      var card = document.createElement("div");
-      card.className = "lv-doc-card";
-      card.setAttribute("role", "article");
-      card.setAttribute("aria-label", doc.name + ", " + doc.category + ", updated " + doc.updated);
-      var inner = document.createElement("div");
-      inner.className = "lv-card-inner";
-      inner.style.background = doc.bg;
-
-      var top = document.createElement("div");
-      top.className = "lv-card-top";
-      var iconWrap = document.createElement("div");
-      iconWrap.className = "lv-card-icon-wrap";
-      if (doc.image) {
-        var thumb = document.createElement("img");
-        thumb.src = doc.image;
-        thumb.alt = "";
-        iconWrap.appendChild(thumb);
-      } else {
-        iconWrap.textContent = doc.emoji;
-      }
-      var tag = document.createElement("span");
-      tag.className = "lv-card-tag";
-      tag.style.background = doc.tagBg;
-      tag.style.color = doc.tagColor;
-      tag.textContent = doc.category;
-      top.appendChild(iconWrap);
-      top.appendChild(tag);
-
-      var bottom = document.createElement("div");
-      bottom.className = "lv-card-bottom";
-      var nameEl = document.createElement("div");
-      nameEl.className = "lv-card-name";
-      nameEl.textContent = doc.name;
-      var dateEl = document.createElement("div");
-      dateEl.className = "lv-card-date";
-      dateEl.textContent = "Updated " + doc.updated;
-      var cc = contrastColors(doc.bg);
-      nameEl.style.color = cc.name;
-      dateEl.style.color = cc.date;
-      bottom.appendChild(nameEl);
-      bottom.appendChild(dateEl);
-
-      var stripe = document.createElement("div");
-      stripe.className = "lv-card-stripe";
-      stripe.style.background = doc.stripe;
-
-      inner.appendChild(top);
-      inner.appendChild(bottom);
-      inner.appendChild(stripe);
-      card.appendChild(inner);
-
-      card.addEventListener("click", function () {
-        if (hadRealDrag) return;
-        var n = currentFiltered.length;
-        var pos = ((i - currentIndex) % n + n) % n;
-        if (pos === 0) {
-          openViewer(doc);
-        } else {
-          currentIndex = i;
-          updateDots();
-          applyStyles();
-        }
-      });
-      stack.appendChild(card);
-    });
-
-    applyStyles();
-
-    /* auto-advance every 4s */
-    autoTimer = setInterval(function () {
-      if (!isDragging && currentFiltered.length > 1) {
-        currentIndex = (currentIndex + 1) % currentFiltered.length;
-        updateDots();
-        applyStyles();
-      }
-    }, 4000);
-  }
-
-  /* ─── SWIPE (bound once, reads live state) ─── */
-  function dragStart(x) {
-    isDragging = true;
-    dragStartX = x;
-    dragDeltaX = 0;
-    hadRealDrag = false;
-  }
-  function dragMove(x) {
-    if (!isDragging) return;
-    dragDeltaX = x - dragStartX;
-    if (Math.abs(dragDeltaX) > 6) hadRealDrag = true;
-    applyStyles();
-  }
-  function dragEnd() {
-    if (!isDragging) return;
-    isDragging = false;
-    var n = currentFiltered.length;
-    if (n > 1) {
-      if (dragDeltaX < -48) currentIndex = (currentIndex + 1) % n;
-      else if (dragDeltaX > 48) currentIndex = (currentIndex - 1 + n) % n;
-    }
-    updateDots();
-    dragDeltaX = 0;
-    applyStyles();
-    setTimeout(function () { hadRealDrag = false; }, 0);
-  }
-
-  function initSwipe() {
-    var stack = $("lv-stack");
-    stack.addEventListener("touchstart", function (e) { dragStart(e.touches[0].clientX); }, { passive: true });
-    stack.addEventListener("touchmove", function (e) {
-      if (isDragging) e.preventDefault();
-      dragMove(e.touches[0].clientX);
-    }, { passive: false });
-    stack.addEventListener("touchend", dragEnd);
-    stack.addEventListener("mousedown", function (e) { dragStart(e.clientX); });
-    window.addEventListener("mousemove", function (e) { dragMove(e.clientX); });
-    window.addEventListener("mouseup", dragEnd);
-  }
-
-  /* ─── RECENT LIST ─── */
-  function buildRecent() {
-    var el = $("lv-recent");
-    el.innerHTML = "";
-    RECENT.forEach(function (r) {
-      var item = document.createElement("div");
-      item.className = "lv-recent-item";
-      item.setAttribute("role", "listitem");
-      item.setAttribute("tabindex", "0");
-      item.setAttribute("aria-label", r.name);
-
-      var icon = document.createElement("div");
-      icon.className = "lv-ri-icon";
-      icon.style.background = r.bg;
-      if (r.image) {
-        var thumb = document.createElement("img");
-        thumb.src = r.image;
-        thumb.alt = "";
-        icon.appendChild(thumb);
-      } else {
-        icon.textContent = r.emoji;
-      }
-
-      var info = document.createElement("div");
-      info.className = "lv-ri-info";
-      var nameEl = document.createElement("div");
-      nameEl.className = "lv-ri-name";
-      nameEl.textContent = r.name;
-      var metaEl = document.createElement("div");
-      metaEl.className = "lv-ri-meta";
-      metaEl.textContent = r.meta;
-      info.appendChild(nameEl);
-      info.appendChild(metaEl);
-
-      var arrow = document.createElement("span");
-      arrow.className = "lv-ri-arrow";
-      arrow.innerHTML = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>';
-
-      var delBtn = document.createElement("button");
-      delBtn.type = "button";
-      delBtn.className = "lv-ri-delete";
-      delBtn.setAttribute("aria-label", "Delete " + r.name);
-      delBtn.title = "Delete document";
-      delBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16ZM10 11v6M14 11v6"/></svg>';
-
-      item.appendChild(icon);
-      item.appendChild(info);
-      item.appendChild(delBtn);
-      item.appendChild(arrow);
-
-      /* tap once to arm (turns red, asks for a second tap), tap again to confirm —
-         protects against accidental deletes without needing a separate dialog */
-      var armTimer = null;
-      delBtn.addEventListener("click", function (e) {
-        e.stopPropagation();
-        if (delBtn.classList.contains("armed")) {
-          clearTimeout(armTimer);
-          var docId = r.docId;
-          if (docId != null) deleteDocument(docId);
-          else removeFromRecentOnly(r);
-        } else {
-          delBtn.classList.add("armed");
-          delBtn.title = "Tap again to confirm delete";
-          armTimer = setTimeout(function () { delBtn.classList.remove("armed"); delBtn.title = "Delete document"; }, 3000);
-        }
-      });
-
-      function openThis() {
-        var doc = (r.docId != null) ? findDocById(r.docId) : null;
-        if (doc) {
-          openViewer(doc);
-        } else {
-          openViewer({ name: r.name, image: r.image, emoji: r.emoji, bg: r.bg });
-        }
-      }
-      item.addEventListener("click", openThis);
-      item.addEventListener("keydown", function (e) { if (e.key === "Enter") openThis(); });
-      el.appendChild(item);
-    });
-  }
-
-  function addToRecent(docId, name, meta, emoji, bg, image) {
-    RECENT.unshift({ docId: docId, name: name, meta: meta, emoji: emoji, bg: bg, image: image || null });
-    if (RECENT.length > 5) RECENT.pop();
-    buildRecent();
-  }
-
-  /* ─── ADD A NEW DOCUMENT INTO THE VAULT ───
-     imageDataUrl (optional) is the actual scanned/uploaded image so it can be viewed again later. */
-  function addDocument(name, imageDataUrl) {
-    var meta = GENERIC_META;
-    var doc = {
-      id: nextDocId++,
-      name: name,
-      filter: meta.filter,
-      category: meta.category,
-      updated: todayLabel(),
-      emoji: meta.emoji,
-      bg: meta.bg,
-      tagBg: meta.tagBg,
-      tagColor: meta.tagColor,
-      stripe: meta.stripe,
-      image: imageDataUrl || null
-    };
-    DOCS.unshift(doc);
-    activeFilter = "all";
-    qsAll(".lv-filter-chip").forEach(function (c) { c.classList.toggle("active", c.dataset.filter === "all"); });
-    currentIndex = 0;
-    buildStack();
-    addToRecent(doc.id, doc.name, doc.category + " · " + doc.updated, doc.emoji, doc.bg, doc.image);
-    saveState();
-    toast("✅ \"" + name + "\" saved to your vault");
-  }
-
-  /* ─── ADD MENU (the + button) ─── */
-  function initAddMenu() {
-    var btn = $("lv-add-btn");
-    var menu = $("lv-add-menu");
-    function closeMenu() {
-      menu.classList.remove("open");
-      btn.setAttribute("aria-expanded", "false");
-    }
-    function toggleMenu(e) {
-      e.stopPropagation();
-      var isOpen = menu.classList.contains("open");
-      if (isOpen) closeMenu();
-      else { menu.classList.add("open"); btn.setAttribute("aria-expanded", "true"); }
-    }
-    btn.addEventListener("click", toggleMenu);
-    document.addEventListener("click", function (e) {
-      if (!menu.contains(e.target) && e.target !== btn) closeMenu();
-    });
-    $("menu-scan").addEventListener("click", function () { closeMenu(); openScanner(); });
-    $("menu-upload").addEventListener("click", function () { closeMenu(); $("lv-upload-input").click(); });
-  }
-
-  /* ─── FILTER CHIPS ─── */
-  function initFilters() {
-    qsAll(".lv-filter-chip").forEach(function (chip) {
-      chip.addEventListener("click", function () {
-        qsAll(".lv-filter-chip").forEach(function (c) { c.classList.remove("active"); });
-        chip.classList.add("active");
-        activeFilter = chip.dataset.filter;
-        currentIndex = 0;
-        buildStack();
-      });
-    });
-  }
-
-  /* ─── SEARCH ─── */
-  function initSearch() {
-    var searchTimer;
-    $("lv-search-input").addEventListener("input", function () {
-      clearTimeout(searchTimer);
-      searchTimer = setTimeout(function () { currentIndex = 0; buildStack(); }, 220);
-    });
-  }
-
-  /* ─── SCANNER (camera capture → preview → name → save) ─── */
-  function openScanner() {
-    var overlay = $("lv-scan-overlay");
-    overlay.classList.add("open");
-    resetScannerUI();
-    startCamera();
-  }
-
-  function resetScannerUI() {
-    capturedDataUrl = null;
-    $("lv-scan-video").style.display = "";
-    $("lv-scan-controls").style.display = "flex";
-    $("lv-scan-preview-wrap").classList.remove("open");
-    $("lv-scan-save-row").classList.remove("open");
-    $("lv-scan-name-input").classList.remove("open");
-    $("lv-scan-name-input").value = "";
-    $("lv-scan-fallback").classList.remove("open");
-    $("lv-scan-status").textContent = "Point your camera at the document";
-  }
-
-  function showCameraFallback(message) {
-    stopCamera();
-    $("lv-scan-video").style.display = "none";
-    $("lv-scan-controls").style.display = "none";
-    $("lv-scan-status").textContent = "";
-    $("lv-scan-fallback").classList.add("open");
-    if (message) toast(message);
-  }
-
-  function startCamera() {
-    stopCamera();
-    $("lv-scan-fallback").classList.remove("open");
-    $("lv-scan-video").style.display = "";
-    $("lv-scan-controls").style.display = "flex";
-    $("lv-scan-status").textContent = "Starting camera…";
-
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      showCameraFallback("⚠️ Camera not supported in this browser/preview");
-      return;
-    }
-
-    var settled = false;
-    var timeoutId = setTimeout(function () {
-      if (settled) return;
-      settled = true;
-      showCameraFallback("⚠️ Camera didn't respond — this preview may be blocking it");
-    }, 4000);
-
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: facingMode }, audio: false })
-      .then(function (stream) {
-        if (settled) { stream.getTracks().forEach(function (t) { t.stop(); }); return; }
-        settled = true;
-        clearTimeout(timeoutId);
-        mediaStream = stream;
-        var video = $("lv-scan-video");
-        video.srcObject = stream;
-        $("lv-scan-status").textContent = "Point your camera at the document";
-      })
-      .catch(function (err) {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timeoutId);
-        showCameraFallback("⚠️ Camera permission denied or unavailable");
-      });
-  }
-
-  function stopCamera() {
-    if (mediaStream) {
-      mediaStream.getTracks().forEach(function (t) { t.stop(); });
-      mediaStream = null;
-    }
-  }
-
-  function closeScanner() {
-    stopCamera();
-    $("lv-scan-overlay").classList.remove("open");
-  }
-
-  function capturePhoto() {
-    var video = $("lv-scan-video");
-    if (!video.videoWidth) { toast("⏳ Camera still warming up, try again"); return; }
-    var canvas = $("lv-scan-canvas");
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    var ctx = canvas.getContext("2d");
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    capturedDataUrl = downscaleCanvas(canvas, 1280);
-
-    $("lv-scan-preview-img").src = capturedDataUrl;
-    $("lv-scan-video").style.display = "none";
-    $("lv-scan-preview-wrap").classList.add("open");
-    $("lv-scan-controls").style.display = "none";
-    $("lv-scan-save-row").classList.add("open");
-    $("lv-scan-name-input").classList.add("open");
-    $("lv-scan-status").textContent = "Looks good? Name it and save.";
-    stopCamera();
-  }
-
-  function retakePhoto() {
-    $("lv-scan-preview-wrap").classList.remove("open");
-    $("lv-scan-save-row").classList.remove("open");
-    $("lv-scan-name-input").classList.remove("open");
-    $("lv-scan-video").style.display = "";
-    $("lv-scan-controls").style.display = "flex";
-    $("lv-scan-status").textContent = "Point your camera at the document";
-    startCamera();
-  }
-
-  function saveScannedPhoto() {
-    var name = $("lv-scan-name-input").value.trim() || "Scanned Document";
-    addDocument(name, capturedDataUrl);
-    closeScanner();
-  }
-
-  function initScanner() {
-    $("btn-scan").addEventListener("click", openScanner);
-    $("lv-scan-close").addEventListener("click", closeScanner);
-    $("lv-scan-shutter").addEventListener("click", capturePhoto);
-    $("lv-scan-retake").addEventListener("click", retakePhoto);
-    $("lv-scan-usephoto").addEventListener("click", saveScannedPhoto);
-    $("lv-scan-flip").addEventListener("click", function () {
-      facingMode = facingMode === "environment" ? "user" : "environment";
-      startCamera();
-    });
-    $("lv-scan-name-input").addEventListener("keydown", function (e) {
-      if (e.key === "Enter") saveScannedPhoto();
-    });
-
-    /* FIX: the "Upload instead" fallback button had no wiring at all before — now it
-       opens a file picker, reads the chosen photo as a data URL, and saves it just
-       like a normal scan. */
-    $("lv-scan-fallback-upload").addEventListener("click", function () {
-      $("lv-scan-fallback-input").click();
-    });
-    $("lv-scan-fallback-input").addEventListener("change", function (e) {
-      var file = e.target.files && e.target.files[0];
-      if (!file) return;
-      var name = file.name.replace(/\.[^/.]+$/, "") || "Scanned Document";
-      resizeImageFile(file, 1280, function (dataUrl) {
-        addDocument(name, dataUrl);
-        closeScanner();
-        e.target.value = "";
-      });
-    });
-  }
-
-  /* ─── UPLOAD ───
-     FIX: previously this only kept the file's name — the actual file content was
-     thrown away, so there was nothing to show when you tried to view it again.
-     Now images are read as a data URL and stored on the document so the viewer
-     can display them. Non-image files (e.g. PDFs) still save with just the name,
-     since there's no inline preview format for those here. */
-  function initUpload() {
-    var input = $("lv-upload-input");
-    $("btn-upload").addEventListener("click", function () { input.click(); });
-    input.addEventListener("change", function () {
-      if (!input.files || !input.files[0]) return;
-      var file = input.files[0];
-      var name = file.name.replace(/\.[^/.]+$/, "");
-      if (file.type && file.type.indexOf("image/") === 0) {
-        resizeImageFile(file, 1280, function (dataUrl) {
-          addDocument(name, dataUrl);
-          input.value = "";
-        });
-      } else {
-        addDocument(name, null);
-        input.value = "";
-      }
-    });
-  }
-
-  /* ─── OTHER QUICK ACTIONS ─── */
-  function initQuickActions() {
-    $("btn-secure").addEventListener("click", function () { toast("🔒 Vault secured with Face ID"); });
-    $("btn-share").addEventListener("click", function () { toast("🔗 Shareable link copied!"); });
-  }
-
-  /* ─── VIEWER WIRING ─── */
-  function initViewer() {
-    $("lv-viewer-close").addEventListener("click", closeViewer);
-    $("lv-viewer-overlay").addEventListener("click", function (e) {
-      if (e.target === $("lv-viewer-overlay")) closeViewer();
-    });
-
-    /* tap once to arm (turns red, asks for a second tap), tap again to confirm —
-       same protective pattern as the recent-list delete button */
-    var delBtn = $("lv-viewer-delete");
-    var armTimer = null;
-    delBtn.addEventListener("click", function () {
-      if (currentViewerDocId == null) { closeViewer(); return; }
-      if (delBtn.classList.contains("armed")) {
-        clearTimeout(armTimer);
-        delBtn.classList.remove("armed");
-        deleteDocument(currentViewerDocId);
-      } else {
-        delBtn.classList.add("armed");
-        delBtn.title = "Tap again to confirm delete";
-        armTimer = setTimeout(function () {
-          delBtn.classList.remove("armed");
-          delBtn.title = "Delete document";
-        }, 3000);
-      }
-    });
-  }
-
-  /* ─── INIT ─── */
-  function init() {
-    initFilters();
-    initSearch();
-    initAddMenu();
-    initScanner();
-    initUpload();
-    initQuickActions();
-    initSwipe();
-    initViewer();
-
-    $("lv-stack").innerHTML = '<div class="lv-empty"><i class="ti ti-file-off"></i><span>Loading your vault…</span></div>';
-
-    loadState().then(function (loaded) {
-      if (!loaded) {
-        // First time opening the app (or storage unavailable) — persist the
-        // starter set so it stays put on the next refresh instead of feeling
-        // like nothing was ever saved.
-        saveState();
-      }
-      buildStack();
-      buildRecent();
-    });
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
-})();
-</script>
+<!-- ============ SHARE SHEET ============ -->
+<div class="sheet-overlay" id="shareSheetOverlay" onclick="closeShareSheet()"></div>
+<div class="sheet" id="shareSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title">Share document</div>
+  <div class="sheet-sub" id="shareDocLabel">Choose how you'd like to share this</div>
+
+  <div class="share-grid">
+    <button class="share-opt" onclick="shareVia('whatsapp')">
+      <div class="share-opt-icon" style="--share-bg:rgba(79,174,138,0.15);--share-fg:#4fae8a;">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 14.4c-.3-.1-1.7-.8-2-.9-.3-.1-.5-.1-.6.1-.2.3-.7.9-.9 1-.2.2-.3.2-.6.1-.9-.4-1.8-1.1-2.5-1.9-.6-.7-1.1-1.5-1.4-2.1-.1-.2 0-.4.1-.5l.5-.6c.1-.2.1-.4 0-.6l-.7-1.7c-.2-.4-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.4-.2.3-.7.9-.7 2 0 1.2.9 2.4 1 2.6.1.1 1.5 2.4 3.7 3.4 2.2 1 2.2.7 2.6.6.4 0 1.3-.5 1.5-1 .2-.5.2-.9.1-1-.1-.1-.2-.1-.3-.1z"/><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l4.9-1.3A10 10 0 1 0 12 2z" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+      </div>
+      WhatsApp
+    </button>
+    <button class="share-opt" onclick="shareVia('email')">
+      <div class="share-opt-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 7l8.9 6.2a3 3 0 0 0 3.4 0L22 7"/></svg>
+      </div>
+      Email
+    </button>
+    <button class="share-opt" onclick="shareVia('copy')">
+      <div class="share-opt-icon" style="--share-bg:rgba(154,166,192,0.15);--share-fg:#9aa6c0;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+      </div>
+      Copy link
+    </button>
+    <button class="share-opt" onclick="shareVia('more')">
+      <div class="share-opt-icon" style="--share-bg:rgba(212,168,67,0.15);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg>
+      </div>
+      More
+    </button>
+  </div>
+
+  <div class="share-link-box">
+    <input type="text" id="shareLinkInput" readonly value="">
+    <button onclick="copyShareLink()">Copy</button>
+  </div>
+  <div style="font-size:11px;color:var(--ink-faint);line-height:1.5;">
+    This link works only on this device in this demo build — connect a backend to enable real cross-device sharing.
+  </div>
+</div>
+
+<!-- ============ DELETE CONFIRM ============ -->
+<div class="modal-overlay" id="confirmOverlay">
+  <div class="confirm-box">
+    <div class="confirm-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+    </div>
+    <div class="confirm-title">Delete this document?</div>
+    <div class="confirm-text">This can't be undone. The file will be permanently removed from your vault.</div>
+    <div class="confirm-row">
+      <button class="confirm-cancel" onclick="closeConfirm()">Cancel</button>
+      <button class="confirm-delete" onclick="confirmDeleteDoc()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ TOASTS ============ -->
+<div class="toast-stack" id="toastStack"></div>
+
+<script src="app.js"></script>
 </body>
 </html>
