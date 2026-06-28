@@ -1,9 +1,9 @@
 {
   "name": "LifeVault",
   "short_name": "LifeVault",
-  "id": "/lifeVault/",
-  "start_url": "/index.html/",
-  "scope": "/lifeVault/",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#000000",
