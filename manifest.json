@@ -2,7 +2,7 @@
   "name": "LifeVault",
   "short_name": "LifeVault",
   "id": "/lifeVault/",
-  "start_url": "/lifeVault/",
+  "start_url": "/index.html/",
   "scope": "/lifeVault/",
   "display": "standalone",
   "background_color": "#ffffff",
