@@ -1,25 +1,36 @@
 /* ============================================================
-   LifeVault — Application Logic
-   Storage: localStorage for account/auth/pin metadata,
-            IndexedDB for actual file/image blobs (handles large data
-            safely, unlike localStorage which silently fails >5MB).
-   NOTE: This is a static front-end build (GitHub Pages, no server).
-         OTP is SIMULATED on-screen (no real SMS gateway wired up).
-         Swap simulateSendOtp() for a real API call when you add a backend.
+   LifeVault — Application Logic (FIREBASE VERSION)
+   Auth:      Firebase Authentication (Email/Password now, Phone later)
+   Metadata:  Firestore  -> users/{uid}  and  users/{uid}/documents/{docId}
+   Files:     Firebase Storage -> users/{uid}/files/{docId}
+
+   ------------------------------------------------------------
+   REQUIRED IN YOUR HTML (before this script tag), in this order:
+   Then paste your Firebase project config below (Project settings ->
+   General -> Your apps -> SDK setup and configuration).
    ============================================================ */
+
+const firebaseConfig = {
+  apiKey: "AIzaSyByif5d0C7IjMzZzfk2sNAtqm48_wbSG4c",
+  authDomain: "doklh26.firebaseapp.com",
+  projectId: "doklh26",
+  storageBucket: "doklh26.firebasestorage.app",
+  messagingSenderId: "649444595165",
+  appId: "1:649444595165:web:b0f322c5f6441aaf82d234",
+  measurementId: "G-N5QK72SDLS",
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+const storage = firebase.storage();
 
 (function(){
 "use strict";
 
 /* ---------------- CONSTANTS ---------------- */
-const DB_NAME = "lifevault_db";
-const DB_VERSION = 1;
-const STORE_FILES = "files";
-const LS_USERS = "lv_users";          // registered accounts
-const LS_SESSION = "lv_session";      // current logged in user id
-const LS_DOCS = "lv_documents";       // document metadata (per user)
-const LS_PIN_PREFIX = "lv_pin_";      // pin hash per user
-const LS_LOCK_STATE = "lv_lock_state";
+const LS_LOCK_STATE = "lv_lock_state";   // device-level: locked/unlocked (kept local on purpose)
+const LS_PIN_CACHE_PREFIX = "lv_pin_cache_"; // local cache of pin hash for instant unlock without a Firestore read
 
 const CATEGORIES = [
   { id:"aadhaar", name:"Aadhaar Card", icon:"id", color:"#d4a843" },
@@ -45,7 +56,7 @@ const ICONS = {
 
 /* ---------------- STATE ---------------- */
 let state = {
-  currentUser: null,
+  currentUser: null,          // { uid, name, email, phone, pinSet }
   documents: [],
   currentView: "home",
   currentCategory: null,
@@ -58,78 +69,13 @@ let state = {
   pendingSaveBlob: null,
   pendingSaveIsImage: true,
   pendingSaveCategory: null,
-  forgotPhone: "",
-  pendingOtp: "",
-  otpPurpose: "", // 'reset'
   currentViewerDocId: null,
   shareTargetDocId: null,
   deleteTargetDocId: null,
   searchQuery: "",
 };
 
-/* ---------------- INDEXEDDB ---------------- */
-let dbPromise = null;
-function openDB(){
-  if (dbPromise) return dbPromise;
-  dbPromise = new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = (e) => {
-      const db = e.target.result;
-      if (!db.objectStoreNames.contains(STORE_FILES)){
-        db.createObjectStore(STORE_FILES, { keyPath: "id" });
-      }
-    };
-    req.onsuccess = (e) => resolve(e.target.result);
-    req.onerror = (e) => reject(e.target.error);
-  });
-  return dbPromise;
-}
-
-async function dbPutFile(id, blob){
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_FILES, "readwrite");
-    tx.objectStore(STORE_FILES).put({ id, blob });
-    tx.oncomplete = () => resolve(true);
-    tx.onerror = (e) => reject(e.target.error);
-  });
-}
-
-async function dbGetFile(id){
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_FILES, "readonly");
-    const req = tx.objectStore(STORE_FILES).get(id);
-    req.onsuccess = () => resolve(req.result ? req.result.blob : null);
-    req.onerror = (e) => reject(e.target.error);
-  });
-}
-
-async function dbDeleteFile(id){
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_FILES, "readwrite");
-    tx.objectStore(STORE_FILES).delete(id);
-    tx.oncomplete = () => resolve(true);
-    tx.onerror = (e) => reject(e.target.error);
-  });
-}
-
-/* blob URL cache so we don't re-read IndexedDB constantly */
-const blobUrlCache = new Map();
-async function getDocObjectUrl(docId){
-  if (blobUrlCache.has(docId)) return blobUrlCache.get(docId);
-  try{
-    const blob = await dbGetFile(docId);
-    if (!blob) return null;
-    const url = URL.createObjectURL(blob);
-    blobUrlCache.set(docId, url);
-    return url;
-  }catch(e){
-    console.error("getDocObjectUrl failed", e);
-    return null;
-  }
-}
+let docsUnsubscribe = null; // live Firestore listener cleanup
 
 /* ---------------- UTIL ---------------- */
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,9); }
@@ -177,36 +123,32 @@ function fileSizeLabel(bytes){
   return (bytes/(1024*1024)).toFixed(1) + " MB";
 }
 
-/* simple hash (demo-grade, not cryptographic) for local-only password/pin storage */
+/* simple hash — used ONLY for the local PIN cache convenience check.
+   Firestore security rules are the real gate for data access. */
 function simpleHash(str){
   let h = 0;
   for (let i=0;i<str.length;i++){ h = (Math.imul(31,h) + str.charCodeAt(i)) | 0; }
   return "h"+h.toString(36)+"_"+str.length;
 }
 
-/* ---------------- USERS / AUTH ---------------- */
-function getUsers(){
-  try { return JSON.parse(localStorage.getItem(LS_USERS) || "[]"); }
-  catch(e){ return []; }
-}
-function saveUsers(users){ localStorage.setItem(LS_USERS, JSON.stringify(users)); }
-
-function normalizePhone(p){ return (p||"").replace(/[^\d+]/g,""); }
-function normalizeEmail(e){ return (e||"").trim().toLowerCase(); }
-
-function findUserByIdentifier(identifier, method){
-  const users = getUsers();
-  if (method === "phone"){
-    const n = normalizePhone(identifier);
-    return users.find(u => u.phone && normalizePhone(u.phone) === n);
-  } else {
-    const n = normalizeEmail(identifier);
-    return users.find(u => u.email && normalizeEmail(u.email) === n);
-  }
+function friendlyAuthError(err){
+  const map = {
+    "auth/email-already-in-use": "An account already exists with this email. Try logging in.",
+    "auth/invalid-email": "Please enter a valid email address.",
+    "auth/weak-password": "Password must be at least 6 characters.",
+    "auth/user-not-found": "No account found with this email. Please sign up.",
+    "auth/wrong-password": "Incorrect password. Please try again.",
+    "auth/invalid-credential": "Incorrect email or password.",
+    "auth/too-many-requests": "Too many attempts. Please wait a bit and try again.",
+    "auth/network-request-failed": "Network error. Check your connection and try again.",
+  };
+  return map[err.code] || (err.message || "Something went wrong. Please try again.");
 }
 
+/* ---------------- AUTH UI STATE ---------------- */
 let authMode = "login"; // login | signup
-let authMethod = "phone"; // phone | email
+// Phone auth is coming later — email is the only active method for now.
+let authMethod = "email";
 
 function switchAuthTab(mode){
   authMode = mode;
@@ -224,12 +166,14 @@ function switchAuthTab(mode){
 }
 window.switchAuthTab = switchAuthTab;
 
+/* Phone method disabled for now — kept as a stub so the button doesn't crash
+   if it's still in your HTML. Wire this up when phone auth is added. */
 function switchAuthMethod(method){
-  authMethod = method;
-  document.getElementById("methodPhoneBtn").classList.toggle("active", method==="phone");
-  document.getElementById("methodEmailBtn").classList.toggle("active", method==="email");
-  document.getElementById("phoneField").style.display = method==="phone" ? "block" : "none";
-  document.getElementById("emailField").style.display = method==="email" ? "block" : "none";
+  if (method === "phone"){
+    showAuthError("Phone login is coming soon — please use email for now.");
+    return;
+  }
+  authMethod = "email";
   hideAuthError();
 }
 window.switchAuthMethod = switchAuthMethod;
@@ -247,89 +191,63 @@ function togglePasswordVisibility(){
 }
 window.togglePasswordVisibility = togglePasswordVisibility;
 
-function handleAuthSubmit(e){
+async function handleAuthSubmit(e){
   e.preventDefault();
   hideAuthError();
 
   const password = document.getElementById("passwordInput").value;
-  const identifier = authMethod === "phone"
-    ? document.getElementById("phoneInput").value.trim()
-    : document.getElementById("emailInput").value.trim();
+  const email = document.getElementById("emailInput").value.trim();
 
-  if (!identifier){
-    showAuthError(authMethod === "phone" ? "Please enter your phone number" : "Please enter your email address");
-    return;
-  }
-  if (authMethod === "phone" && normalizePhone(identifier).replace("+","").length < 7){
-    showAuthError("Please enter a valid phone number");
-    return;
-  }
-  if (authMethod === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier)){
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
     showAuthError("Please enter a valid email address");
     return;
   }
-  if (!password || password.length < 4){
-    showAuthError("Password must be at least 4 characters");
+  if (!password || password.length < 6){
+    showAuthError("Password must be at least 6 characters");
     return;
   }
 
-  if (authMode === "signup"){
-    const name = document.getElementById("nameInput").value.trim();
-    if (!name){ showAuthError("Please enter your name"); return; }
-    const existing = findUserByIdentifier(identifier, authMethod);
-    if (existing){
-      showAuthError("An account already exists with this " + (authMethod==="phone"?"phone number":"email") + ". Try logging in.");
-      return;
-    }
-    const user = {
-      id: uid(),
-      name,
-      phone: authMethod === "phone" ? identifier : "",
-      email: authMethod === "email" ? identifier : "",
-      passwordHash: simpleHash(password),
-      pinSet: false,
-      createdAt: Date.now(),
-    };
-    const users = getUsers();
-    users.push(user);
-    saveUsers(users);
-    loginAsUser(user);
-    showToast("Account created", "success");
-    goToPinSetup(true);
-  } else {
-    const user = findUserByIdentifier(identifier, authMethod);
-    if (!user){
-      showAuthError("No account found with this " + (authMethod==="phone"?"phone number":"email") + ". Please sign up.");
-      return;
-    }
-    if (user.passwordHash !== simpleHash(password)){
-      showAuthError("Incorrect password. Please try again.");
-      return;
-    }
-    loginAsUser(user);
-    showToast("Welcome back, " + user.name.split(" ")[0], "success");
-    if (user.pinSet){
-      goToPinLock();
+  const submitBtn = document.getElementById("authSubmitBtn");
+  submitBtn.disabled = true;
+  const originalLabel = submitBtn.textContent;
+  submitBtn.textContent = "Please wait...";
+
+  try{
+    if (authMode === "signup"){
+      const name = document.getElementById("nameInput").value.trim();
+      if (!name){ showAuthError("Please enter your name"); return; }
+
+      const cred = await auth.createUserWithEmailAndPassword(email, password);
+      await cred.user.updateProfile({ displayName: name });
+      await db.collection("users").doc(cred.user.uid).set({
+        name,
+        email,
+        phone: "",
+        pinSet: false,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      showToast("Account created", "success");
+      // onAuthStateChanged will route to PIN setup
     } else {
-      goToPinSetup(true);
+      await auth.signInWithEmailAndPassword(email, password);
+      // onAuthStateChanged will route onward
     }
+  }catch(err){
+    console.error(err);
+    showAuthError(friendlyAuthError(err));
+  }finally{
+    submitBtn.disabled = false;
+    submitBtn.textContent = originalLabel;
   }
 }
 window.handleAuthSubmit = handleAuthSubmit;
 
-function loginAsUser(user){
-  state.currentUser = user;
-  localStorage.setItem(LS_SESSION, user.id);
-  loadDocumentsForCurrentUser();
-}
-
 function logoutCompletely(){
-  localStorage.removeItem(LS_SESSION);
   localStorage.removeItem(LS_LOCK_STATE);
+  detachDocsListener();
+  auth.signOut().catch(err => console.error("Sign out failed", err));
   state.currentUser = null;
   state.documents = [];
-  resetAuthForm();
-  showScreen("authScreen");
 }
 window.logoutCompletely = logoutCompletely;
 
@@ -339,9 +257,9 @@ function resetAuthForm(){
   switchAuthTab("login");
 }
 
-/* ---------------- FORGOT PASSWORD / OTP FLOW ---------------- */
+/* ---------------- FORGOT PASSWORD (real email link now — no OTP needed) ---------------- */
 function goToForgotPassword(){
-  document.getElementById("forgotPhoneInput").value = document.getElementById("phoneInput").value || "";
+  document.getElementById("forgotPhoneInput").value = document.getElementById("emailInput").value || "";
   document.getElementById("forgotError").classList.remove("show");
   showScreen("forgotScreen");
 }
@@ -352,133 +270,49 @@ window.backToLogin = backToLogin;
 function backToForgot(){ showScreen("forgotScreen"); }
 window.backToForgot = backToForgot;
 
-function sendResetOtp(){
-  const phone = document.getElementById("forgotPhoneInput").value.trim();
+/* NOTE: this function is kept with its original name (sendResetOtp) so your
+   existing HTML button keeps working, but it no longer sends an OTP — it
+   sends a real Firebase password-reset email instead. */
+async function sendResetOtp(){
+  const email = document.getElementById("forgotPhoneInput").value.trim();
   const errBox = document.getElementById("forgotError");
   const errText = document.getElementById("forgotErrorText");
   errBox.classList.remove("show");
 
-  if (!phone || normalizePhone(phone).replace("+","").length < 7){
-    errText.textContent = "Please enter a valid phone number";
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+    errText.textContent = "Please enter a valid email address";
     errBox.classList.add("show");
     return;
   }
-  const user = findUserByIdentifier(phone, "phone");
-  if (!user){
-    errText.textContent = "No account is registered with this phone number";
+
+  try{
+    await auth.sendPasswordResetEmail(email);
+    showToast("Reset link sent — check your email", "success");
+    resetAuthForm();
+    showScreen("authScreen");
+  }catch(err){
+    console.error(err);
+    errText.textContent = friendlyAuthError(err);
     errBox.classList.add("show");
-    return;
   }
-  state.forgotPhone = phone;
-  state.otpPurpose = "reset";
-  simulateSendOtp(phone);
-  document.getElementById("otpPhoneDisplay").textContent = phone;
-  clearOtpBoxes();
-  showScreen("otpScreen");
 }
 window.sendResetOtp = sendResetOtp;
 
-function simulateSendOtp(phone){
-  /* DEMO ONLY: generates a code and displays it on-screen.
-     Replace this with a real backend call (e.g. Twilio/MSG91) that
-     actually texts the user, then have verifyOtp() check server-side. */
-  const code = String(Math.floor(100000 + Math.random()*900000));
-  state.pendingOtp = code;
-  document.getElementById("otpDemoCode").textContent = code;
-}
-
-function resendOtp(){
-  simulateSendOtp(state.forgotPhone);
-  clearOtpBoxes();
-  showToast("New code sent", "success");
-}
+/* The OTP-entry and new-password screens are no longer part of the flow —
+   Firebase's reset link takes the user to their email, where they set a new
+   password directly. You can remove otpScreen / newPasswordScreen from your
+   HTML, or leave them unused. */
+function resendOtp(){ sendResetOtp(); }
 window.resendOtp = resendOtp;
-
-function clearOtpBoxes(){
-  document.querySelectorAll("#otpBoxes input").forEach(i => i.value = "");
-  document.getElementById("otpError").classList.remove("show");
-  const first = document.querySelector("#otpBoxes input[data-i='0']");
-  if (first) setTimeout(()=>first.focus(), 100);
-}
-
-function verifyOtp(){
-  const boxes = Array.from(document.querySelectorAll("#otpBoxes input"));
-  const entered = boxes.map(b => b.value).join("");
-  const errBox = document.getElementById("otpError");
-  if (entered.length < 6){
-    document.getElementById("otpErrorText").textContent = "Please enter the full 6-digit code";
-    errBox.classList.add("show");
-    return;
-  }
-  if (entered !== state.pendingOtp){
-    document.getElementById("otpErrorText").textContent = "Incorrect code. Please try again.";
-    errBox.classList.add("show");
-    boxes.forEach(b=>b.value="");
-    boxes[0].focus();
-    return;
-  }
-  errBox.classList.remove("show");
-  if (state.otpPurpose === "reset"){
-    showScreen("newPasswordScreen");
-  }
-}
+function verifyOtp(){ /* unused in Firebase flow */ }
 window.verifyOtp = verifyOtp;
-
-function submitNewPassword(){
-  const pw = document.getElementById("newPasswordInput").value;
-  const cpw = document.getElementById("confirmPasswordInput").value;
-  const errBox = document.getElementById("newPwError");
-  const errText = document.getElementById("newPwErrorText");
-  errBox.classList.remove("show");
-
-  if (!pw || pw.length < 4){
-    errText.textContent = "Password must be at least 4 characters";
-    errBox.classList.add("show");
-    return;
-  }
-  if (pw !== cpw){
-    errText.textContent = "Passwords do not match";
-    errBox.classList.add("show");
-    return;
-  }
-  const user = findUserByIdentifier(state.forgotPhone, "phone");
-  if (!user){
-    errText.textContent = "Something went wrong. Please try again.";
-    errBox.classList.add("show");
-    return;
-  }
-  const users = getUsers();
-  const idx = users.findIndex(u => u.id === user.id);
-  users[idx].passwordHash = simpleHash(pw);
-  saveUsers(users);
-  showToast("Password updated. Please log in.", "success");
-  resetAuthForm();
-  showScreen("authScreen");
-}
+function submitNewPassword(){ /* unused in Firebase flow */ }
 window.submitNewPassword = submitNewPassword;
 
-/* OTP input auto-advance */
-document.addEventListener("input", function(e){
-  if (e.target.matches("#otpBoxes input")){
-    const i = parseInt(e.target.dataset.i, 10);
-    e.target.value = e.target.value.replace(/[^0-9]/g,"").slice(0,1);
-    if (e.target.value && i < 5){
-      const next = document.querySelector(`#otpBoxes input[data-i='${i+1}']`);
-      if (next) next.focus();
-    }
-  }
-});
-document.addEventListener("keydown", function(e){
-  if (e.target.matches("#otpBoxes input") && e.key === "Backspace" && !e.target.value){
-    const i = parseInt(e.target.dataset.i, 10);
-    if (i > 0){
-      const prev = document.querySelector(`#otpBoxes input[data-i='${i-1}']`);
-      if (prev) prev.focus();
-    }
-  }
-});
-
-/* ---------------- PIN SETUP & LOCK ---------------- */
+/* ---------------- PIN SETUP & LOCK ----------------
+   PIN is a device-unlock convenience layer on top of real Firebase Auth.
+   The hash lives in Firestore (users/{uid}.pinHash) so it's consistent
+   across devices, and is cached locally for instant re-checks. */
 function buildKeypad(containerId, onKey, onBackspace){
   const keys = ["1","2","3","4","5","6","7","8","9","","0","back"];
   const el = document.getElementById(containerId);
@@ -531,7 +365,7 @@ function handlePinSetupBackspace(){
   renderPinDots("pinSetupDots", state.pinSetupBuffer.length);
 }
 
-function processPinSetupComplete(){
+async function processPinSetupComplete(){
   if (state.pinSetupFirstEntry === null){
     state.pinSetupFirstEntry = state.pinSetupBuffer;
     state.pinSetupBuffer = "";
@@ -540,15 +374,21 @@ function processPinSetupComplete(){
     document.getElementById("pinSetupSub").textContent = "Enter the same 6-digit PIN again";
   } else {
     if (state.pinSetupBuffer === state.pinSetupFirstEntry){
-      const users = getUsers();
-      const idx = users.findIndex(u => u.id === state.currentUser.id);
-      users[idx].pinSet = true;
-      saveUsers(users);
-      state.currentUser.pinSet = true;
-      localStorage.setItem(LS_PIN_PREFIX + state.currentUser.id, simpleHash(state.pinSetupBuffer));
-      localStorage.setItem(LS_LOCK_STATE, "unlocked");
-      showToast("PIN set successfully", "success");
-      enterApp();
+      const hash = simpleHash(state.pinSetupBuffer);
+      try{
+        await db.collection("users").doc(state.currentUser.uid).set(
+          { pinSet: true, pinHash: hash },
+          { merge: true }
+        );
+        state.currentUser.pinSet = true;
+        localStorage.setItem(LS_PIN_CACHE_PREFIX + state.currentUser.uid, hash);
+        localStorage.setItem(LS_LOCK_STATE, "unlocked");
+        showToast("PIN set successfully", "success");
+        enterApp();
+      }catch(err){
+        console.error(err);
+        showToast("Couldn't save PIN — check your connection", "error");
+      }
     } else {
       showToast("PINs didn't match. Try again.", "error");
       state.pinSetupBuffer = "";
@@ -583,9 +423,24 @@ function handlePinLockBackspace(){
   renderPinDots("pinLockDots", state.pinLockBuffer.length);
 }
 
-function processPinLockComplete(){
-  const storedHash = localStorage.getItem(LS_PIN_PREFIX + state.currentUser.id);
-  if (simpleHash(state.pinLockBuffer) === storedHash){
+async function processPinLockComplete(){
+  const enteredHash = simpleHash(state.pinLockBuffer);
+  let storedHash = localStorage.getItem(LS_PIN_CACHE_PREFIX + state.currentUser.uid);
+
+  if (!storedHash){
+    // no local cache (e.g. new device) — fetch once from Firestore
+    try{
+      const snap = await db.collection("users").doc(state.currentUser.uid).get();
+      storedHash = snap.exists ? snap.data().pinHash : null;
+      if (storedHash) localStorage.setItem(LS_PIN_CACHE_PREFIX + state.currentUser.uid, storedHash);
+    }catch(err){
+      console.error(err);
+      document.getElementById("pinLockError").textContent = "Couldn't verify PIN — check your connection.";
+      return;
+    }
+  }
+
+  if (enteredHash === storedHash){
     localStorage.setItem(LS_LOCK_STATE, "unlocked");
     document.getElementById("pinLockError").textContent = "";
     enterApp();
@@ -611,24 +466,39 @@ function lockVaultNow(){
 }
 window.lockVaultNow = lockVaultNow;
 
-/* ---------------- DOCUMENT DATA ---------------- */
-function docsKeyForUser(){ return LS_DOCS + "_" + state.currentUser.id; }
-
-function loadDocumentsForCurrentUser(){
-  try{
-    state.documents = JSON.parse(localStorage.getItem(docsKeyForUser()) || "[]");
-  }catch(e){
-    state.documents = [];
-  }
+/* ---------------- DOCUMENT DATA (Firestore, live-synced) ---------------- */
+function docsCollectionRef(){
+  return db.collection("users").doc(state.currentUser.uid).collection("documents");
 }
 
-function persistDocuments(){
-  try{
-    localStorage.setItem(docsKeyForUser(), JSON.stringify(state.documents));
-  }catch(e){
-    console.error("persistDocuments failed", e);
-    showToast("Could not save document list — storage may be full", "error");
-  }
+function attachDocsListener(){
+  detachDocsListener();
+  docsUnsubscribe = docsCollectionRef().orderBy("createdAt", "desc").onSnapshot(
+    (snap) => {
+      state.documents = snap.docs.map(d => {
+        const data = d.data();
+        return {
+          id: d.id,
+          name: data.name,
+          category: data.category,
+          isImage: data.isImage,
+          size: data.size || 0,
+          secured: !!data.secured,
+          storagePath: data.storagePath,
+          createdAt: data.createdAt && data.createdAt.toMillis ? data.createdAt.toMillis() : Date.now(),
+        };
+      });
+      renderCurrentView();
+    },
+    (err) => {
+      console.error("Documents listener failed", err);
+      showToast("Couldn't sync documents — check your connection", "error");
+    }
+  );
+}
+
+function detachDocsListener(){
+  if (docsUnsubscribe){ docsUnsubscribe(); docsUnsubscribe = null; }
 }
 
 function getCategoryById(id){ return CATEGORIES.find(c => c.id === id) || CATEGORIES[CATEGORIES.length-1]; }
@@ -670,6 +540,7 @@ window.handleSearch = handleSearch;
 
 function renderCurrentView(){
   const main = document.getElementById("appMain");
+  if (!main) return;
   if (state.currentView === "home") main.innerHTML = renderHomeView();
   else if (state.currentView === "allDocs") main.innerHTML = renderAllDocsView();
   else if (state.currentView === "category") main.innerHTML = renderCategoryView(state.currentCategory);
@@ -816,7 +687,7 @@ function renderSettingsView(){
       <div class="profile-avatar">${escapeHtml(initial)}</div>
       <div class="profile-info">
         <b>${escapeHtml(u.name)}</b>
-        <span>${escapeHtml(u.phone || u.email || "")}</span>
+        <span>${escapeHtml(u.email || u.phone || "")}</span>
       </div>
     </div>
 
@@ -853,14 +724,15 @@ function renderSettingsView(){
   `;
 }
 
-/* lazy-load thumbnails from IndexedDB without blocking render */
+/* lazy-load thumbnails from Firebase Storage without blocking render */
+const thumbUrlCache = new Map();
 async function hydrateThumbnails(){
   const nodes = document.querySelectorAll("[data-thumb-for]");
   for (const node of nodes){
     const id = node.getAttribute("data-thumb-for");
     const doc = state.documents.find(d=>d.id===id);
     if (!doc || !doc.isImage) continue;
-    const url = await getDocObjectUrl(id);
+    const url = await getDocDownloadUrl(doc);
     if (url){
       node.innerHTML = `<img src="${url}" alt="${escapeHtml(doc.name)}">` + (doc.secured ? `<div class="doc-thumb-badge">SECURED</div>` : "");
     }
@@ -868,17 +740,23 @@ async function hydrateThumbnails(){
   computeStorageUsed();
 }
 
+async function getDocDownloadUrl(doc){
+  if (thumbUrlCache.has(doc.id)) return thumbUrlCache.get(doc.id);
+  try{
+    const url = await storage.ref(doc.storagePath).getDownloadURL();
+    thumbUrlCache.set(doc.id, url);
+    return url;
+  }catch(e){
+    console.error("getDocDownloadUrl failed", e);
+    return null;
+  }
+}
+
 async function computeStorageUsed(){
   const label = document.getElementById("storageUsedLabel");
   if (!label) return;
-  if (navigator.storage && navigator.storage.estimate){
-    try{
-      const est = await navigator.storage.estimate();
-      label.textContent = fileSizeLabel(est.usage) + " used";
-      return;
-    }catch(e){/* fall through */}
-  }
-  label.textContent = state.documents.length + " files stored";
+  const totalBytes = state.documents.reduce((sum,d)=>sum+(d.size||0),0);
+  label.textContent = fileSizeLabel(totalBytes) + " used";
 }
 
 /* ---------------- ADD DOCUMENT SHEET ---------------- */
@@ -1066,29 +944,32 @@ async function confirmSaveDocument(){
   if (!state.pendingSaveBlob){ showToast("No file to save", "error"); return; }
 
   const id = uid();
+  const storagePath = `users/${state.currentUser.uid}/files/${id}`;
+  const saveBtn = document.querySelector("#saveSheet .btn-primary");
+  if (saveBtn){ saveBtn.disabled = true; saveBtn.textContent = "Uploading..."; }
+
   try{
-    await dbPutFile(id, state.pendingSaveBlob);
+    await storage.ref(storagePath).put(state.pendingSaveBlob);
+
+    await docsCollectionRef().doc(id).set({
+      name,
+      category: state.pendingSaveCategory,
+      isImage: state.pendingSaveIsImage,
+      size: state.pendingSaveBlob.size || 0,
+      secured: false,
+      storagePath,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+
+    closeSaveSheet();
+    showToast("Document saved", "success");
+    goToView(state.currentView === "category" ? "category" : "home", state.currentCategory);
   }catch(err){
-    console.error("Failed to save file to IndexedDB", err);
-    showToast("Could not save the file. Storage may be full.", "error");
-    return;
+    console.error("Failed to save document", err);
+    showToast("Could not save the file. Check your connection and try again.", "error");
+  }finally{
+    if (saveBtn){ saveBtn.disabled = false; saveBtn.textContent = "Save"; }
   }
-
-  const doc = {
-    id,
-    name,
-    category: state.pendingSaveCategory,
-    isImage: state.pendingSaveIsImage,
-    size: state.pendingSaveBlob.size || 0,
-    secured: false,
-    createdAt: Date.now(),
-  };
-  state.documents.unshift(doc);
-  persistDocuments();
-
-  closeSaveSheet();
-  showToast("Document saved", "success");
-  goToView(state.currentView === "category" ? "category" : "home", state.currentCategory);
 }
 window.confirmSaveDocument = confirmSaveDocument;
 
@@ -1111,7 +992,7 @@ async function openViewer(docId){
   document.getElementById("viewerOverlay").classList.add("show");
 
   if (doc.isImage){
-    const url = await getDocObjectUrl(docId);
+    const url = await getDocDownloadUrl(doc);
     if (url){
       body.innerHTML = `<img src="${url}" alt="${escapeHtml(doc.name)}">`;
     } else {
@@ -1133,17 +1014,16 @@ async function downloadCurrentDoc(){
   const doc = state.documents.find(d => d.id === state.currentViewerDocId);
   if (!doc) return;
   try{
-    const blob = await dbGetFile(doc.id);
-    if (!blob){ showToast("File data not found", "error"); return; }
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
+    const url = await getDocDownloadUrl(doc);
+    if (!url){ showToast("File data not found", "error"); return; }
     const ext = doc.isImage ? "jpg" : "pdf";
+    const a = document.createElement("a");
     a.href = url;
     a.download = doc.name.replace(/[^\w\-. ]/g,"_") + "." + ext;
+    a.target = "_blank";
     document.body.appendChild(a);
     a.click();
     a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url), 4000);
     showToast("Download started", "success");
   }catch(err){
     console.error(err);
@@ -1152,14 +1032,18 @@ async function downloadCurrentDoc(){
 }
 window.downloadCurrentDoc = downloadCurrentDoc;
 
-function toggleSecureCurrentDoc(){
+async function toggleSecureCurrentDoc(){
   const doc = state.documents.find(d => d.id === state.currentViewerDocId);
   if (!doc) return;
-  doc.secured = !doc.secured;
-  persistDocuments();
-  document.getElementById("viewerSecureLabel").textContent = doc.secured ? "Unsecure" : "Secure";
-  showToast(doc.secured ? "Document marked as secured" : "Document unsecured", "success");
-  renderCurrentView();
+  const newVal = !doc.secured;
+  try{
+    await docsCollectionRef().doc(doc.id).update({ secured: newVal });
+    document.getElementById("viewerSecureLabel").textContent = newVal ? "Unsecure" : "Secure";
+    showToast(newVal ? "Document marked as secured" : "Document unsecured", "success");
+  }catch(err){
+    console.error(err);
+    showToast("Couldn't update — check your connection", "error");
+  }
 }
 window.toggleSecureCurrentDoc = toggleSecureCurrentDoc;
 
@@ -1178,29 +1062,33 @@ window.closeConfirm = closeConfirm;
 async function confirmDeleteDoc(){
   const id = state.deleteTargetDocId;
   if (!id) return;
-  try{ await dbDeleteFile(id); }catch(e){ console.warn("dbDeleteFile failed", e); }
-  if (blobUrlCache.has(id)){
-    URL.revokeObjectURL(blobUrlCache.get(id));
-    blobUrlCache.delete(id);
+  const doc = state.documents.find(d => d.id === id);
+
+  try{
+    if (doc && doc.storagePath){
+      await storage.ref(doc.storagePath).delete().catch(e => console.warn("Storage delete failed", e));
+    }
+    await docsCollectionRef().doc(id).delete();
+    thumbUrlCache.delete(id);
+    closeConfirm();
+    closeViewer();
+    showToast("Document deleted", "success");
+  }catch(err){
+    console.error(err);
+    showToast("Couldn't delete — check your connection", "error");
   }
-  state.documents = state.documents.filter(d => d.id !== id);
-  persistDocuments();
-  closeConfirm();
-  closeViewer();
-  showToast("Document deleted", "success");
-  renderCurrentView();
 }
 window.confirmDeleteDoc = confirmDeleteDoc;
 
 /* ---------------- SHARE ---------------- */
-function openShareSheetForCurrent(){
+async function openShareSheetForCurrent(){
   const doc = state.documents.find(d => d.id === state.currentViewerDocId);
   if (!doc) return;
   state.shareTargetDocId = doc.id;
   document.getElementById("viewerOverlay").classList.remove("show");
   document.getElementById("shareDocLabel").textContent = `Share "${doc.name}"`;
-  const fakeLink = location.origin + location.pathname + "#doc=" + doc.id;
-  document.getElementById("shareLinkInput").value = fakeLink;
+  const url = await getDocDownloadUrl(doc);
+  document.getElementById("shareLinkInput").value = url || "";
   document.getElementById("shareSheetOverlay").classList.add("show");
   document.getElementById("shareSheet").classList.add("show");
 }
@@ -1232,12 +1120,7 @@ async function shareVia(channel){
     } else if (channel === "more"){
       if (navigator.share){
         try{
-          const blob = await dbGetFile(doc.id);
-          if (blob && navigator.canShare && navigator.canShare({ files:[new File([blob],doc.name,{type:blob.type})] })){
-            await navigator.share({ files:[new File([blob],doc.name,{type:blob.type})], title: doc.name, text: "Shared from LifeVault" });
-          } else {
-            await navigator.share({ title: doc.name, text, url: link });
-          }
+          await navigator.share({ title: doc.name, text, url: link });
         }catch(err){
           if (err.name !== "AbortError") showToast("Share was cancelled", "info");
           return;
@@ -1271,43 +1154,52 @@ async function copyShareLink(){
 }
 window.copyShareLink = copyShareLink;
 
-/* ---------------- APP INIT ---------------- */
+/* ---------------- APP INIT / AUTH STATE ---------------- */
 function initApp(){
   // Splash sequence
   setTimeout(() => {
-    resumeSession();
+    // resumeSession happens via onAuthStateChanged below
   }, 1500);
-
-  // sheet swipe-to-close via overlay tap is already handled by onclick on overlay divs
 }
 
-function resumeSession(){
-  const sessionUserId = localStorage.getItem(LS_SESSION);
-  if (!sessionUserId){
+auth.onAuthStateChanged(async (user) => {
+  if (!user){
+    detachDocsListener();
+    state.currentUser = null;
+    state.documents = [];
     resetAuthForm();
     showScreen("authScreen");
     return;
   }
-  const users = getUsers();
-  const user = users.find(u => u.id === sessionUserId);
-  if (!user){
-    logoutCompletely();
-    return;
-  }
-  state.currentUser = user;
-  loadDocumentsForCurrentUser();
 
-  if (!user.pinSet){
-    goToPinSetup(true);
-    return;
+  try{
+    const snap = await db.collection("users").doc(user.uid).get();
+    const profile = snap.exists ? snap.data() : {};
+    state.currentUser = {
+      uid: user.uid,
+      name: profile.name || user.displayName || "",
+      email: profile.email || user.email || "",
+      phone: profile.phone || "",
+      pinSet: !!profile.pinSet,
+    };
+
+    attachDocsListener();
+
+    if (!state.currentUser.pinSet){
+      goToPinSetup(true);
+      return;
+    }
+    const lockState = localStorage.getItem(LS_LOCK_STATE);
+    if (lockState === "unlocked"){
+      enterApp();
+    } else {
+      goToPinLock();
+    }
+  }catch(err){
+    console.error("Failed to load user profile", err);
+    showToast("Couldn't load your account — check your connection", "error");
   }
-  const lockState = localStorage.getItem(LS_LOCK_STATE);
-  if (lockState === "unlocked"){
-    enterApp();
-  } else {
-    goToPinLock();
-  }
-}
+});
 
 document.addEventListener("DOMContentLoaded", initApp);
 
