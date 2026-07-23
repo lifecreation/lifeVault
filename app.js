@@ -6,6 +6,13 @@
 
    ------------------------------------------------------------
    REQUIRED IN YOUR HTML (before this script tag), in this order:
+
+   <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+   <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+   <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+   <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-storage-compat.js"></script>
+   <script src="lifevault-firebase.js"></script>
+
    Then paste your Firebase project config below (Project settings ->
    General -> Your apps -> SDK setup and configuration).
    ============================================================ */
@@ -174,9 +181,23 @@ function switchAuthMethod(method){
     return;
   }
   authMethod = "email";
+  applyAuthMethodVisibility();
   hideAuthError();
 }
 window.switchAuthMethod = switchAuthMethod;
+
+/* Forces the email field to show and the phone field to hide, regardless
+   of whatever the HTML's default state was (old HTML defaulted to phone). */
+function applyAuthMethodVisibility(){
+  const phoneField = document.getElementById("phoneField");
+  const emailField = document.getElementById("emailField");
+  const methodPhoneBtn = document.getElementById("methodPhoneBtn");
+  const methodEmailBtn = document.getElementById("methodEmailBtn");
+  if (phoneField) phoneField.style.display = "none";
+  if (emailField) emailField.style.display = "block";
+  if (methodPhoneBtn) methodPhoneBtn.classList.remove("active");
+  if (methodEmailBtn) methodEmailBtn.classList.add("active");
+}
 
 function showAuthError(msg){
   const box = document.getElementById("authError");
@@ -1156,6 +1177,8 @@ window.copyShareLink = copyShareLink;
 
 /* ---------------- APP INIT / AUTH STATE ---------------- */
 function initApp(){
+  // Force email field visible from the very first paint (old HTML defaulted to phone).
+  applyAuthMethodVisibility();
   // Splash sequence
   setTimeout(() => {
     // resumeSession happens via onAuthStateChanged below
