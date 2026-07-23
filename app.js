@@ -1,6 +1,8 @@
 /* ============================================================
    LifeVault — Application Logic (FIREBASE VERSION)
-   Auth:      Firebase Authentication (Email/Password now, Phone later)
+   Auth:      Firebase Authentication (Email/Password AND Phone/OTP)
+              Phone auth needs the Blaze (pay-as-you-go) plan enabled in
+              Firebase Console -> Usage and billing, or OTPs will fail to send.
    Metadata:  Firestore  -> users/{uid}  and  users/{uid}/documents/{docId}
    Files:     Firebase Storage -> users/{uid}/files/{docId}
 
